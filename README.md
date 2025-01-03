@@ -5,7 +5,7 @@
 ```typescript
 const alloraClient = new AlloraApiClient({
     chainSlug: ChainSlug.TESTNET,
-    apiKey: 'your-allora-api-key'
+    apiKey: 'UP-632d1a59f49448ca8b914427', // Optional
   });
 
 // Examples:
