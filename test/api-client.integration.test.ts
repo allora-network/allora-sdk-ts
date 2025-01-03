@@ -1,5 +1,5 @@
 import {
-  AlloraApiClient,
+  AlloraAPIClient,
   ChainSlug,
   PricePredictionToken,
   PricePredictionTimeframe,
@@ -7,14 +7,14 @@ import {
 
 const DEFAULT_TEST_TIMEOUT = 30000;
 
-describe("AlloraApiClient Integration Tests", () => {
-  let client: AlloraApiClient;
+describe("AlloraAPIClient Integration Tests", () => {
+  let client: AlloraAPIClient;
 
   beforeAll(() => {
-    client = new AlloraApiClient({
+    client = new AlloraAPIClient({
       chainSlug: ChainSlug.TESTNET,
       apiKey: process.env.ALLORA_API_KEY,
-      baseApiUrl: process.env.ALLORA_API_URL,
+      baseAPIUrl: process.env.ALLORA_API_URL,
     });
   });
 

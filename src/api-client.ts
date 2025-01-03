@@ -3,7 +3,7 @@ export enum ChainSlug {
   MAINNET = "mainnet",
 }
 
-export enum ChainId {
+export enum ChainID {
   TESTNET = "allora-testnet-1",
   MAINNET = "allora-mainnet-1",
 }
@@ -22,10 +22,10 @@ export enum SignatureFormat {
   ETHEREUM_SEPOLIA = "ethereum-11155111",
 }
 
-export interface AlloraApiClientConfig {
+export interface AlloraAPIClientConfig {
   chainSlug?: ChainSlug;
   apiKey?: string;
-  baseApiUrl?: string;
+  baseAPIUrl?: string;
 }
 
 export interface AlloraTopic {
@@ -75,18 +75,18 @@ export interface AlloraAPIResponse<T> {
 
 type ContinuationToken = string | null | undefined;
 
-export class AlloraApiClient {
+export class AlloraAPIClient {
   private readonly apiKey: string;
-  private readonly baseApiUrl: string;
-  private readonly chainId: ChainId;
+  private readonly baseAPIUrl: string;
+  private readonly chainId: ChainID;
 
-  constructor(config: AlloraApiClientConfig) {
+  constructor(config: AlloraAPIClientConfig) {
     this.chainId =
       config.chainSlug === ChainSlug.TESTNET
-        ? ChainId.TESTNET
-        : ChainId.MAINNET;
+        ? ChainID.TESTNET
+        : ChainID.MAINNET;
     this.apiKey = config.apiKey;
-    this.baseApiUrl = config.baseApiUrl || "https://api.upshot.xyz/v2";
+    this.baseAPIUrl = config.baseAPIUrl || "https://api.upshot.xyz/v2";
   }
 
   /**
@@ -102,7 +102,7 @@ export class AlloraApiClient {
     let continuationToken: ContinuationToken = null;
 
     do {
-      const response = await this.fetchApiResponse<TopicsResponse>(
+      const response = await this.fetchAPIResponse<TopicsResponse>(
         `allora/${this.chainId}/topics`,
       );
 
@@ -124,7 +124,7 @@ export class AlloraApiClient {
     topicId: number,
     signatureFormat: SignatureFormat = SignatureFormat.ETHEREUM_SEPOLIA,
   ): Promise<AlloraInference> {
-    const response = await this.fetchApiResponse<AlloraInference>(
+    const response = await this.fetchAPIResponse<AlloraInference>(
       `allora/consumer/${signatureFormat}?allora_topic_id=${topicId}&inference_value_type=uint256`,
     );
 
@@ -144,7 +144,7 @@ export class AlloraApiClient {
     timeframe: PricePredictionTimeframe,
     signatureFormat: SignatureFormat = SignatureFormat.ETHEREUM_SEPOLIA,
   ): Promise<AlloraInferenceData> {
-    const response = await this.fetchApiResponse<AlloraInference>(
+    const response = await this.fetchAPIResponse<AlloraInference>(
       `allora/consumer/price/${signatureFormat}/${asset}/${timeframe}`,
     );
 
@@ -156,10 +156,10 @@ export class AlloraApiClient {
   }
 
   getRequestUrl(endpoint: string): string {
-    // Remove trailing slash from baseApiUrl if it exists
-    const apiUrl = this.baseApiUrl.endsWith("/")
-      ? this.baseApiUrl.slice(0, -1)
-      : this.baseApiUrl;
+    // Remove trailing slash from baseAPIUrl if it exists
+    const apiUrl = this.baseAPIUrl.endsWith("/")
+      ? this.baseAPIUrl.slice(0, -1)
+      : this.baseAPIUrl;
 
     // Remove leading slash from endpoint if it exists
     endpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
@@ -167,7 +167,7 @@ export class AlloraApiClient {
     return `${apiUrl}/${endpoint}`;
   }
 
-  private async fetchApiResponse<T>(
+  private async fetchAPIResponse<T>(
     endpoint: string,
   ): Promise<AlloraAPIResponse<T>> {
     const requestUrl = this.getRequestUrl(endpoint);

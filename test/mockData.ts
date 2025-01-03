@@ -37,7 +37,7 @@ export const mockInference: AlloraInference = {
   inference_data: mockInferenceData,
 };
 
-export const mockApiResponse = {
+export const mockAPIResponse = {
   request_id: "test-request-id",
   status: true,
   data: mockInference,
