@@ -5,7 +5,7 @@ import {
   PricePredictionTimeframe,
   ChainID,
   SignatureFormat,
-} from "../src/api-client";
+} from "../src/v2";
 import { mockTopic, mockInference, mockAPIResponse } from "./mockData";
 
 describe("AlloraAPIClient Unit Tests", () => {
@@ -34,7 +34,7 @@ describe("AlloraAPIClient Unit Tests", () => {
         apiKey: "test-api-key",
       });
       expect(testClient["baseAPIUrl"]).toBe("https://api.upshot.xyz/v2");
-      expect(testClient["chainId"]).toBe(ChainID.TESTNET);
+      expect(testClient["chainID"]).toBe(ChainID.TESTNET);
       expect(testClient["apiKey"]).toBe("test-api-key");
     });
 
@@ -43,7 +43,7 @@ describe("AlloraAPIClient Unit Tests", () => {
         chainSlug: ChainSlug.MAINNET,
         apiKey: "test-api-key",
       });
-      expect(mainnetClient["chainId"]).toBe(ChainID.MAINNET);
+      expect(mainnetClient["chainID"]).toBe(ChainID.MAINNET);
     });
 
     it("should use custom baseAPIUrl when provided", () => {
@@ -109,16 +109,16 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
-  describe("getInference", () => {
+  describe("getInferenceByTopicID", () => {
     it("should fetch inference data correctly", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockAPIResponse),
       });
 
-      const topicId = 1;
-      const inference = await client.getInference(
-        topicId,
+      const topicID = 1;
+      const inference = await client.getInferenceByTopicID(
+        topicID,
         SignatureFormat.ETHEREUM_SEPOLIA,
       );
 
@@ -131,7 +131,7 @@ describe("AlloraAPIClient Unit Tests", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining(
-          `/allora/consumer/${SignatureFormat.ETHEREUM_SEPOLIA}?allora_topic_id=${topicId}&inference_value_type=uint256`,
+          `/allora/consumer/${SignatureFormat.ETHEREUM_SEPOLIA}?allora_topic_id=${topicID}&inference_value_type=uint256`,
         ),
         expect.any(Object),
       );
@@ -143,7 +143,7 @@ describe("AlloraAPIClient Unit Tests", () => {
         status: 400,
         json: () => Promise.resolve({}),
       });
-      await expect(client.getInference(1)).rejects.toThrow();
+      await expect(client.getInferenceByTopicID(1)).rejects.toThrow();
     });
   });
 
@@ -159,10 +159,10 @@ describe("AlloraAPIClient Unit Tests", () => {
         PricePredictionTimeframe.FIVE_MIN,
       );
 
-      expect(prediction.network_inference).toEqual(
+      expect(prediction.inference_data.network_inference).toEqual(
         mockInference.inference_data.network_inference,
       );
-      expect(prediction.network_inference_normalized).toEqual(
+      expect(prediction.inference_data.network_inference_normalized).toEqual(
         mockInference.inference_data.network_inference_normalized,
       );
       expect(mockFetch).toHaveBeenCalledWith(
