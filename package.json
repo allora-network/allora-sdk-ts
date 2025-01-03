@@ -10,8 +10,8 @@
     "build": "npx tsc",
     "lint": "npx eslint **/*.ts --config eslint.config.js --no-warn-ignored",
     "test": "npx jest",
-    "test:unit": "jest --testMatch='**/*.unit.test.ts'",
-    "test:integration": "jest --testMatch='**/*.integration.test.ts'"
+    "test:unit": "npx jest --testMatch='**/*.unit.test.ts'",
+    "test:integration": "npx jest --testMatch='**/*.integration.test.ts'"
   },
   "dependencies": {
     "@types/node": "^22.10.5",
