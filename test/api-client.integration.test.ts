@@ -42,11 +42,15 @@ describe("AlloraAPIClient Integration Tests", () => {
           return;
         }
 
-        const inference = await client.getInferenceByTopicID(topics[0].topic_id);
+        const inference = await client.getInferenceByTopicID(
+          topics[0].topic_id,
+        );
         expect(inference).toHaveProperty("signature");
         expect(inference).toHaveProperty("inference_data");
         expect(inference.inference_data).toHaveProperty("network_inference");
-        expect(inference.inference_data).toHaveProperty("network_inference_normalized");
+        expect(inference.inference_data).toHaveProperty(
+          "network_inference_normalized",
+        );
       },
       DEFAULT_TEST_TIMEOUT,
     );
@@ -64,7 +68,9 @@ describe("AlloraAPIClient Integration Tests", () => {
         expect(prediction).toHaveProperty("signature");
         expect(prediction).toHaveProperty("inference_data");
         expect(prediction.inference_data).toHaveProperty("network_inference");
-        expect(prediction.inference_data).toHaveProperty("network_inference_normalized");
+        expect(prediction.inference_data).toHaveProperty(
+          "network_inference_normalized",
+        );
       },
       DEFAULT_TEST_TIMEOUT,
     );

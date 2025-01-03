@@ -1,8 +1,4 @@
-import {
-  AlloraTopic,
-  AlloraInferenceData,
-  AlloraInference,
-} from "../src/v2";
+import { AlloraTopic, AlloraInferenceData, AlloraInference } from "../src/v2";
 
 export const mockTopic: AlloraTopic = {
   topic_id: 1,
