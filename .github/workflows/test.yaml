@@ -1,0 +1,38 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x]
+        test-type: ['unit', 'integration']
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+
+    - name: Install yarn via corepack
+      run: corepack enable && corepack prepare yarn@3.5.1 --activate
+
+    - name: Run unit tests
+      if: matrix.test-type == 'unit'
+      run: yarn test:unit
+      
+    - name: Run integration tests
+      if: matrix.test-type == 'integration'
+      run: yarn test:integration
+      env:
+        ALLORA_API_KEY: ${{ secrets.ALLORA_TEST_API_KEY }}

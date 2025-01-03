@@ -22,7 +22,7 @@ export enum SignatureFormat {
   ETHEREUM_SEPOLIA = "ethereum-11155111",
 }
 
-export interface AlloraSDKConfig {
+export interface AlloraApiClientConfig {
   chainSlug?: ChainSlug;
   apiKey?: string;
   baseApiUrl?: string;
@@ -80,7 +80,7 @@ export class AlloraApiClient {
   private readonly baseApiUrl: string;
   private readonly chainId: ChainId;
 
-  constructor(config: AlloraSDKConfig) {
+  constructor(config: AlloraApiClientConfig) {
     this.chainId =
       config.chainSlug === ChainSlug.TESTNET
         ? ChainId.TESTNET
@@ -149,17 +149,13 @@ export class AlloraApiClient {
     );
 
     if (!response.data?.inference_data) {
-      throw new Error(
-        `Failed to fetch price prediction. ${response.apiResponseMessage || ""}`,
-      );
+      throw new Error("Failed to fetch price prediction");
     }
 
     return response.data.inference_data;
   }
 
-  private async fetchApiResponse<T>(
-    endpoint: string,
-  ): Promise<AlloraAPIResponse<T>> {
+  getRequestUrl(endpoint: string): string {
     // Remove trailing slash from baseApiUrl if it exists
     const apiUrl = this.baseApiUrl.endsWith("/")
       ? this.baseApiUrl.slice(0, -1)
@@ -168,28 +164,29 @@ export class AlloraApiClient {
     // Remove leading slash from endpoint if it exists
     endpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
 
-    try {
-      const response = await fetch(`${apiUrl}/${endpoint}`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
-        },
-      });
+    return `${apiUrl}/${endpoint}`;
+  }
 
-      const responseBody: AlloraAPIResponse<T> = await response.json();
+  private async fetchApiResponse<T>(
+    endpoint: string,
+  ): Promise<AlloraAPIResponse<T>> {
+    const requestUrl = this.getRequestUrl(endpoint);
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-api-key": this.apiKey,
+      },
+    });
+    const responseBody: AlloraAPIResponse<T> = await response.json();
 
-      // Handle error responses
-      if (!responseBody.status) {
-        throw new Error(
-          `Failed to fetch from Allora API. ${responseBody.apiResponseMessage || ""}`,
-        );
-      }
-
-      return responseBody;
-    } catch (error) {
-      throw new Error(`Failed to fetch from Allora API: ${error.message}`);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch from Allora API:  url=${requestUrl} status=${response.status} body=${JSON.stringify(responseBody, null, 4)}`,
+      );
     }
+
+    return responseBody;
   }
 }
