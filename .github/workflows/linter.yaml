@@ -28,8 +28,8 @@ jobs:
       - name: Install dependencies with yarn
         run: yarn install
 
-      - name: Run linters
-        uses: wearerequired/lint-action@v2
-        with:
-          eslint: true
-          prettier: true
+      - name: Run ESLint
+        run: yarn lint
+
+      - name: Run Prettier
+        run: yarn prettier --check .

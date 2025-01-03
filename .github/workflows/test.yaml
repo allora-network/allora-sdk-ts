@@ -26,6 +26,9 @@ jobs:
 
     - name: Install yarn via corepack
       run: corepack enable && corepack prepare yarn@1.22.22 --activate
+    
+    - name: Install dependencies with yarn
+      run: yarn install
 
     - name: Run unit tests
       if: matrix.test-type == 'unit'
