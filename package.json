@@ -8,6 +8,11 @@
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/allora-network/allora-sdk-ts",
+  "repository": {
+      "type": "git",
+      "url": "git+https://github.com/allora-network/allora-sdk-ts.git"
+  },
   "scripts": {
     "format": "npx prettier -w ./*",
     "check-format": "npx prettier --check ./*",
