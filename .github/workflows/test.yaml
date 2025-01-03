@@ -25,7 +25,7 @@ jobs:
         cache: 'yarn'
 
     - name: Install yarn via corepack
-      run: corepack enable && corepack prepare yarn@3.5.1 --activate
+      run: corepack enable && corepack prepare yarn@1.22.22 --activate
 
     - name: Run unit tests
       if: matrix.test-type == 'unit'

@@ -4,6 +4,7 @@
   "main": "index.js",
   "license": "Apache-2.0",
   "type": "module",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "format": "npx prettier -w ./*",
     "build": "npx tsc",
