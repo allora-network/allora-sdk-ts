@@ -85,7 +85,7 @@ export class AlloraAPIClient {
       config.chainSlug === ChainSlug.TESTNET
         ? ChainID.TESTNET
         : ChainID.MAINNET;
-    this.apiKey = config.apiKey;
+    this.apiKey = config.apiKey || "UP-8cbc632a67a84ac1b4078661";
     this.baseAPIUrl = config.baseAPIUrl || "https://api.upshot.xyz/v2";
   }
 
