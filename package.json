@@ -7,6 +7,7 @@
   "packageManager": "yarn@1.22.22",
   "scripts": {
     "format": "npx prettier -w ./*",
+    "check-format": "npx prettier --check ./*",
     "build": "npx tsc",
     "lint": "npx eslint **/*.ts --config eslint.config.js --no-warn-ignored",
     "test": "npx jest",
