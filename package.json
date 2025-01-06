@@ -1,6 +1,6 @@
 {
   "name": "@alloralabs/allora-sdk",
-  "version": "0.0.2-beta.5",
+  "version": "0.0.4",
   "license": "Apache-2.0",
   "packageManager": "yarn@1.22.22",
   "publishConfig": {
@@ -31,6 +31,9 @@
       "require": "./dist/src/v2/index.js",
       "types": "./dist/src/v2/index.d.ts"
     }
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@types/node": "^22.10.5",
