@@ -1,9 +1,7 @@
 {
   "name": "@alloralabs/allora-sdk",
-  "version": "0.0.1",
-  "main": "dist/index.js",
+  "version": "0.0.2-beta.5",
   "license": "Apache-2.0",
-  "type": "module",
   "packageManager": "yarn@1.22.22",
   "publishConfig": {
     "access": "public"
@@ -17,10 +15,22 @@
     "format": "npx prettier -w ./*",
     "check-format": "npx prettier --check ./*",
     "build": "npx tsc",
-    "lint": "npx eslint **/*.ts --config eslint.config.js --no-warn-ignored",
+    "lint": "npx eslint **/*.ts --config eslint.config.cjs --no-warn-ignored",
     "test": "npx jest",
     "test:unit": "npx jest --testMatch='**/*.unit.test.ts'",
     "test:integration": "npx jest --testMatch='**/*.integration.test.ts'"
+  },
+  "main": "dist/src/v2/index.js",
+  "types": "dist/src/v2/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/src/v2/index.js",
+      "require": "./dist/src/v2/index.js",
+      "types": "./dist/src/v2/index.d.ts"
+    }
   },
   "dependencies": {
     "@types/node": "^22.10.5",

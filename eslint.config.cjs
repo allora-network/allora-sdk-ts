@@ -1,12 +1,17 @@
-import js from "@eslint/js";
-import globals from "globals";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
-import tsParser from "@typescript-eslint/parser";
+const js = require("@eslint/js");
+const globals = require("globals");
+const tsPlugin = require("@typescript-eslint/eslint-plugin");
+const tsParser = require("@typescript-eslint/parser");
 
-export default [
+module.exports = [
   js.configs.recommended,
   {
-    ignores: ["node_modules/**", "package.json", "eslint.config.js", "dist/**"],
+    ignores: [
+      "node_modules/**",
+      "package.json",
+      "eslint.config.cjs",
+      "dist/**",
+    ],
   },
   {
     files: ["**/*.ts"],
