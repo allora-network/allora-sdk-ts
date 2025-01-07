@@ -7,7 +7,7 @@ import { AlloraAPIClient } from '@alloralabs/allora-sdk/v2'
 
 const alloraClient = new AlloraAPIClient({
     chainSlug: ChainSlug.TESTNET,
-    apiKey: 'UP-632d1a59f49448ca8b914427', // Optional
+    apiKey: 'UP-8cbc632a67a84ac1b4078661', // Optional
   });
 
 // Examples:
