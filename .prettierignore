@@ -1,4 +1,4 @@
-.eslintrc.js
+.eslintrc.ts
 .eslintignore
 .git/
 .github/
@@ -6,7 +6,7 @@
 .npmrc
 .nvmrc
 .prettierignore
-.prettierrc.js
+.prettierrc.ts
 .yarn
 .yarnrc.yaml
 node_modules/
