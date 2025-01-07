@@ -3,7 +3,7 @@ export enum ChainSlug {
   MAINNET = "mainnet",
 }
 
-export enum ChainId {
+export enum ChainID {
   TESTNET = "allora-testnet-1",
   MAINNET = "allora-mainnet-1",
 }
@@ -22,10 +22,10 @@ export enum SignatureFormat {
   ETHEREUM_SEPOLIA = "ethereum-11155111",
 }
 
-export interface AlloraApiClientConfig {
+export interface AlloraAPIClientConfig {
   chainSlug?: ChainSlug;
   apiKey?: string;
-  baseApiUrl?: string;
+  baseAPIUrl?: string;
 }
 
 export interface AlloraTopic {
@@ -75,18 +75,18 @@ export interface AlloraAPIResponse<T> {
 
 type ContinuationToken = string | null | undefined;
 
-export class AlloraApiClient {
+export class AlloraAPIClient {
   private readonly apiKey: string;
-  private readonly baseApiUrl: string;
-  private readonly chainId: ChainId;
+  private readonly baseAPIUrl: string;
+  private readonly chainID: ChainID;
 
-  constructor(config: AlloraApiClientConfig) {
-    this.chainId =
+  constructor(config: AlloraAPIClientConfig) {
+    this.chainID =
       config.chainSlug === ChainSlug.TESTNET
-        ? ChainId.TESTNET
-        : ChainId.MAINNET;
-    this.apiKey = config.apiKey;
-    this.baseApiUrl = config.baseApiUrl || "https://api.upshot.xyz/v2";
+        ? ChainID.TESTNET
+        : ChainID.MAINNET;
+    this.apiKey = config.apiKey || "UP-8cbc632a67a84ac1b4078661";
+    this.baseAPIUrl = config.baseAPIUrl || "https://api.upshot.xyz/v2";
   }
 
   /**
@@ -102,8 +102,8 @@ export class AlloraApiClient {
     let continuationToken: ContinuationToken = null;
 
     do {
-      const response = await this.fetchApiResponse<TopicsResponse>(
-        `allora/${this.chainId}/topics`,
+      const response = await this.fetchAPIResponse<TopicsResponse>(
+        `allora/${this.chainID}/topics`,
       );
 
       allTopics.push(...response.data.topics);
@@ -116,18 +116,21 @@ export class AlloraApiClient {
   /**
    * Fetches an inference for a specific topic from the Allora API.
    *
-   * @param {number} topicId - The unique identifier of the topic to get inference for
+   * @param {number} topicID - The unique identifier of the topic to get inference for
    * @returns {Promise<AlloraInference>} A promise that resolves to the inference data
    * @throws {Error} If the API request fails or returns an unsuccessful status
    */
-  async getInference(
-    topicId: number,
+  async getInferenceByTopicID(
+    topicID: number,
     signatureFormat: SignatureFormat = SignatureFormat.ETHEREUM_SEPOLIA,
   ): Promise<AlloraInference> {
-    const response = await this.fetchApiResponse<AlloraInference>(
-      `allora/consumer/${signatureFormat}?allora_topic_id=${topicId}&inference_value_type=uint256`,
+    const response = await this.fetchAPIResponse<AlloraInference>(
+      `allora/consumer/${signatureFormat}?allora_topic_id=${topicID}&inference_value_type=uint256`,
     );
 
+    if (!response.data?.inference_data) {
+      throw new Error("Failed to fetch price prediction");
+    }
     return response.data;
   }
 
@@ -136,30 +139,29 @@ export class AlloraApiClient {
    *
    * @param {PricePredictionToken} asset - The asset to get price prediction for
    * @param {PricePredictionTimeframe} timeframe - The timeframe to get price prediction for
-   * @returns {Promise<AlloraInferenceData>} A promise that resolves to the price prediction data
+   * @returns {Promise<AlloraInference>} A promise that resolves to the inference data
    * @throws {Error} If the API request fails or returns an unsuccessful status
    */
   async getPricePrediction(
     asset: PricePredictionToken,
     timeframe: PricePredictionTimeframe,
     signatureFormat: SignatureFormat = SignatureFormat.ETHEREUM_SEPOLIA,
-  ): Promise<AlloraInferenceData> {
-    const response = await this.fetchApiResponse<AlloraInference>(
+  ): Promise<AlloraInference> {
+    const response = await this.fetchAPIResponse<AlloraInference>(
       `allora/consumer/price/${signatureFormat}/${asset}/${timeframe}`,
     );
 
     if (!response.data?.inference_data) {
       throw new Error("Failed to fetch price prediction");
     }
-
-    return response.data.inference_data;
+    return response.data;
   }
 
   getRequestUrl(endpoint: string): string {
-    // Remove trailing slash from baseApiUrl if it exists
-    const apiUrl = this.baseApiUrl.endsWith("/")
-      ? this.baseApiUrl.slice(0, -1)
-      : this.baseApiUrl;
+    // Remove trailing slash from baseAPIUrl if it exists
+    const apiUrl = this.baseAPIUrl.endsWith("/")
+      ? this.baseAPIUrl.slice(0, -1)
+      : this.baseAPIUrl;
 
     // Remove leading slash from endpoint if it exists
     endpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
@@ -167,7 +169,7 @@ export class AlloraApiClient {
     return `${apiUrl}/${endpoint}`;
   }
 
-  private async fetchApiResponse<T>(
+  private async fetchAPIResponse<T>(
     endpoint: string,
   ): Promise<AlloraAPIResponse<T>> {
     const requestUrl = this.getRequestUrl(endpoint);

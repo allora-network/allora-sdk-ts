@@ -1,25 +1,25 @@
 import {
-  AlloraApiClient,
+  AlloraAPIClient,
   ChainSlug,
   PricePredictionToken,
   PricePredictionTimeframe,
-  ChainId,
+  ChainID,
   SignatureFormat,
-} from "../src/api-client";
-import { mockTopic, mockInference, mockApiResponse } from "./mockData";
+} from "../src/v2";
+import { mockTopic, mockInference, mockAPIResponse } from "./mockData";
 
-describe("AlloraApiClient Unit Tests", () => {
-  let client: AlloraApiClient;
+describe("AlloraAPIClient Unit Tests", () => {
+  let client: AlloraAPIClient;
   let mockFetch: jest.Mock;
 
   beforeEach(() => {
     mockFetch = jest.fn();
     global.fetch = mockFetch;
 
-    client = new AlloraApiClient({
+    client = new AlloraAPIClient({
       chainSlug: ChainSlug.TESTNET,
       apiKey: "test-api-key",
-      baseApiUrl: "https://test-api.com",
+      baseAPIUrl: "https://test-api.com",
     });
   });
 
@@ -29,31 +29,31 @@ describe("AlloraApiClient Unit Tests", () => {
 
   describe("constructor", () => {
     it("should initialize with correct default values", () => {
-      const testClient = new AlloraApiClient({
+      const testClient = new AlloraAPIClient({
         chainSlug: ChainSlug.TESTNET,
         apiKey: "test-api-key",
       });
-      expect(testClient["baseApiUrl"]).toBe("https://api.upshot.xyz/v2");
-      expect(testClient["chainId"]).toBe(ChainId.TESTNET);
+      expect(testClient["baseAPIUrl"]).toBe("https://api.upshot.xyz/v2");
+      expect(testClient["chainID"]).toBe(ChainID.TESTNET);
       expect(testClient["apiKey"]).toBe("test-api-key");
     });
 
     it("should use mainnet chain ID when chainSlug is MAINNET", () => {
-      const mainnetClient = new AlloraApiClient({
+      const mainnetClient = new AlloraAPIClient({
         chainSlug: ChainSlug.MAINNET,
         apiKey: "test-api-key",
       });
-      expect(mainnetClient["chainId"]).toBe(ChainId.MAINNET);
+      expect(mainnetClient["chainID"]).toBe(ChainID.MAINNET);
     });
 
-    it("should use custom baseApiUrl when provided", () => {
-      const customBaseApiUrl = "https://custom-api.com";
-      const customClient = new AlloraApiClient({
+    it("should use custom baseAPIUrl when provided", () => {
+      const customBaseAPIUrl = "https://custom-api.com";
+      const customClient = new AlloraAPIClient({
         chainSlug: ChainSlug.TESTNET,
         apiKey: "test-api-key",
-        baseApiUrl: customBaseApiUrl,
+        baseAPIUrl: customBaseAPIUrl,
       });
-      expect(customClient["baseApiUrl"]).toBe(customBaseApiUrl);
+      expect(customClient["baseAPIUrl"]).toBe(customBaseAPIUrl);
     });
   });
 
@@ -109,16 +109,16 @@ describe("AlloraApiClient Unit Tests", () => {
     });
   });
 
-  describe("getInference", () => {
+  describe("getInferenceByTopicID", () => {
     it("should fetch inference data correctly", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve(mockApiResponse),
+        json: () => Promise.resolve(mockAPIResponse),
       });
 
-      const topicId = 1;
-      const inference = await client.getInference(
-        topicId,
+      const topicID = 1;
+      const inference = await client.getInferenceByTopicID(
+        topicID,
         SignatureFormat.ETHEREUM_SEPOLIA,
       );
 
@@ -131,7 +131,7 @@ describe("AlloraApiClient Unit Tests", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining(
-          `/allora/consumer/${SignatureFormat.ETHEREUM_SEPOLIA}?allora_topic_id=${topicId}&inference_value_type=uint256`,
+          `/allora/consumer/${SignatureFormat.ETHEREUM_SEPOLIA}?allora_topic_id=${topicID}&inference_value_type=uint256`,
         ),
         expect.any(Object),
       );
@@ -143,7 +143,7 @@ describe("AlloraApiClient Unit Tests", () => {
         status: 400,
         json: () => Promise.resolve({}),
       });
-      await expect(client.getInference(1)).rejects.toThrow();
+      await expect(client.getInferenceByTopicID(1)).rejects.toThrow();
     });
   });
 
@@ -151,7 +151,7 @@ describe("AlloraApiClient Unit Tests", () => {
     it("should fetch price prediction data correctly", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve(mockApiResponse),
+        json: () => Promise.resolve(mockAPIResponse),
       });
 
       const prediction = await client.getPricePrediction(
@@ -159,10 +159,10 @@ describe("AlloraApiClient Unit Tests", () => {
         PricePredictionTimeframe.FIVE_MIN,
       );
 
-      expect(prediction.network_inference).toEqual(
+      expect(prediction.inference_data.network_inference).toEqual(
         mockInference.inference_data.network_inference,
       );
-      expect(prediction.network_inference_normalized).toEqual(
+      expect(prediction.inference_data.network_inference_normalized).toEqual(
         mockInference.inference_data.network_inference_normalized,
       );
       expect(mockFetch).toHaveBeenCalledWith(
@@ -178,7 +178,7 @@ describe("AlloraApiClient Unit Tests", () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            ...mockApiResponse,
+            ...mockAPIResponse,
             data: { signature: "0x1234" },
           }),
       });

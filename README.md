@@ -3,9 +3,11 @@
 ### Usage
 
 ```typescript
-const alloraClient = new AlloraApiClient({
+import { AlloraAPIClient } from '@alloralabs/allora-sdk/v2'
+
+const alloraClient = new AlloraAPIClient({
     chainSlug: ChainSlug.TESTNET,
-    apiKey: 'your-allora-api-key'
+    apiKey: 'UP-8cbc632a67a84ac1b4078661', // Optional
   });
 
 // Examples:
@@ -13,8 +15,8 @@ const alloraClient = new AlloraApiClient({
 // Fetch Allora topics
 const topics = await alloraClient.getAllTopics();
 
-// Fetch topic inference
-const ethPrice5m = await  alloraClient.getInference(3);
+// Fetch topic inference by ID
+const ethPrice5m = await  alloraClient.getInferenceByTopicID(3);
 
 // Fetch asset price prediction
 const btc8h = await alloraClient.getPricePrediction(

@@ -1,8 +1,4 @@
-import {
-  AlloraTopic,
-  AlloraInferenceData,
-  AlloraInference,
-} from "../src/api-client";
+import { AlloraTopic, AlloraInferenceData, AlloraInference } from "../src/v2";
 
 export const mockTopic: AlloraTopic = {
   topic_id: 1,
@@ -37,7 +33,7 @@ export const mockInference: AlloraInference = {
   inference_data: mockInferenceData,
 };
 
-export const mockApiResponse = {
+export const mockAPIResponse = {
   request_id: "test-request-id",
   status: true,
   data: mockInference,
