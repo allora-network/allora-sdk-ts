@@ -1,13 +1,19 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "esModuleInterop": true,
     "module": "commonjs",
     "moduleResolution": "node",
-    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "declaration": true,
-    "outDir": "./dist"
+    "declarationMap": true,
+    "outDir": "./dist",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "composite": true,
+    "incremental": true
   },
   "include": ["src/**/*"],
-  "exclude": ["test/**/*"]
+  "exclude": ["test/**/*", "dist", "node_modules"]
 }
