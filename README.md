@@ -1,5 +1,10 @@
 # Allora SDK
 
+### Installation
+```
+npm install @alloralabs/allora-sdk
+```
+
 ### Usage
 
 ```typescript
