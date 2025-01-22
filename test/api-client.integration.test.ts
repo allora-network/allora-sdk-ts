@@ -1,8 +1,8 @@
 import {
   AlloraAPIClient,
   ChainSlug,
-  PricePredictionToken,
-  PricePredictionTimeframe,
+  PriceInferenceToken,
+  PriceInferenceTimeframe,
 } from "../src/v2";
 
 const DEFAULT_TEST_TIMEOUT = 30000;
@@ -56,19 +56,19 @@ describe("AlloraAPIClient Integration Tests", () => {
     );
   });
 
-  describe("getPricePrediction", () => {
+  describe("getPriceInference", () => {
     it(
-      "should fetch BTC price prediction",
+      "should fetch BTC price inference",
       async () => {
-        const prediction = await client.getPricePrediction(
-          PricePredictionToken.BTC,
-          PricePredictionTimeframe.EIGHT_HOURS,
+        const inference = await client.getPriceInference(
+          PriceInferenceToken.BTC,
+          PriceInferenceTimeframe.EIGHT_HOURS,
         );
 
-        expect(prediction).toHaveProperty("signature");
-        expect(prediction).toHaveProperty("inference_data");
-        expect(prediction.inference_data).toHaveProperty("network_inference");
-        expect(prediction.inference_data).toHaveProperty(
+        expect(inference).toHaveProperty("signature");
+        expect(inference).toHaveProperty("inference_data");
+        expect(inference.inference_data).toHaveProperty("network_inference");
+        expect(inference.inference_data).toHaveProperty(
           "network_inference_normalized",
         );
       },

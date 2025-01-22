@@ -23,9 +23,9 @@ const topics = await alloraClient.getAllTopics();
 // Fetch topic inference by ID
 const ethPrice5m = await  alloraClient.getInferenceByTopicID(3);
 
-// Fetch asset price prediction
-const btc8h = await alloraClient.getPricePrediction(
-  PricePredictionToken.BTC,
-  PricePredictionTimeframe.EIGHT_HOURS
+// Fetch asset price inference
+const btc8h = await alloraClient.getPriceInference(
+  PriceInferenceToken.BTC,
+  PriceInferenceTimeframe.EIGHT_HOURS
 );
 ```

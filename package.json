@@ -1,6 +1,6 @@
 {
   "name": "@alloralabs/allora-sdk",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "packageManager": "yarn@1.22.22",
   "publishConfig": {
@@ -8,8 +8,8 @@
   },
   "homepage": "https://github.com/allora-network/allora-sdk-ts",
   "repository": {
-      "type": "git",
-      "url": "git+https://github.com/allora-network/allora-sdk-ts.git"
+    "type": "git",
+    "url": "git+https://github.com/allora-network/allora-sdk-ts.git"
   },
   "scripts": {
     "format": "npx prettier -w ./*",
