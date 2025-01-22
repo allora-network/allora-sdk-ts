@@ -1,8 +1,8 @@
 import {
   AlloraAPIClient,
   ChainSlug,
-  PricePredictionToken,
-  PricePredictionTimeframe,
+  PriceInferenceToken,
+  PriceInferenceTimeframe,
   ChainID,
   SignatureFormat,
 } from "../src/v2";
@@ -147,27 +147,27 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
-  describe("getPricePrediction", () => {
-    it("should fetch price prediction data correctly", async () => {
+  describe("getPriceInference", () => {
+    it("should fetch price inference data correctly", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockAPIResponse),
       });
 
-      const prediction = await client.getPricePrediction(
-        PricePredictionToken.BTC,
-        PricePredictionTimeframe.FIVE_MIN,
+      const inference = await client.getPriceInference(
+        PriceInferenceToken.BTC,
+        PriceInferenceTimeframe.FIVE_MIN,
       );
 
-      expect(prediction.inference_data.network_inference).toEqual(
+      expect(inference.inference_data.network_inference).toEqual(
         mockInference.inference_data.network_inference,
       );
-      expect(prediction.inference_data.network_inference_normalized).toEqual(
+      expect(inference.inference_data.network_inference_normalized).toEqual(
         mockInference.inference_data.network_inference_normalized,
       );
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining(
-          `/allora/consumer/price/${SignatureFormat.ETHEREUM_SEPOLIA}/${PricePredictionToken.BTC}/${PricePredictionTimeframe.FIVE_MIN}`,
+          `/allora/consumer/price/${SignatureFormat.ETHEREUM_SEPOLIA}/${PriceInferenceToken.BTC}/${PriceInferenceTimeframe.FIVE_MIN}`,
         ),
         expect.any(Object),
       );
@@ -184,11 +184,11 @@ describe("AlloraAPIClient Unit Tests", () => {
       });
 
       await expect(
-        client.getPricePrediction(
-          PricePredictionToken.BTC,
-          PricePredictionTimeframe.FIVE_MIN,
+        client.getPriceInference(
+          PriceInferenceToken.BTC,
+          PriceInferenceTimeframe.FIVE_MIN,
         ),
-      ).rejects.toThrow("Failed to fetch price prediction");
+      ).rejects.toThrow("Failed to fetch price inference");
     });
 
     it("should throw an error if the API request fails", async () => {
@@ -198,9 +198,9 @@ describe("AlloraAPIClient Unit Tests", () => {
         json: () => Promise.resolve({}),
       });
       await expect(
-        client.getPricePrediction(
-          PricePredictionToken.BTC,
-          PricePredictionTimeframe.FIVE_MIN,
+        client.getPriceInference(
+          PriceInferenceToken.BTC,
+          PriceInferenceTimeframe.FIVE_MIN,
         ),
       ).rejects.toThrow();
     });

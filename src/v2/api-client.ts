@@ -8,12 +8,12 @@ export enum ChainID {
   MAINNET = "allora-mainnet-1",
 }
 
-export enum PricePredictionToken {
+export enum PriceInferenceToken {
   BTC = "BTC",
   ETH = "ETH",
 }
 
-export enum PricePredictionTimeframe {
+export enum PriceInferenceTimeframe {
   FIVE_MIN = "5m",
   EIGHT_HOURS = "8h",
 }
@@ -129,22 +129,22 @@ export class AlloraAPIClient {
     );
 
     if (!response.data?.inference_data) {
-      throw new Error("Failed to fetch price prediction");
+      throw new Error("Failed to fetch price inference");
     }
     return response.data;
   }
 
   /**
-   * Fetches a price prediction for a specific asset and timeframe from the Allora API.
+   * Fetches a price inference for a specific asset and timeframe from the Allora API.
    *
-   * @param {PricePredictionToken} asset - The asset to get price prediction for
-   * @param {PricePredictionTimeframe} timeframe - The timeframe to get price prediction for
+   * @param {PriceInferenceToken} asset - The asset to get price inference for
+   * @param {PriceInferenceTimeframe} timeframe - The timeframe to get price inference for
    * @returns {Promise<AlloraInference>} A promise that resolves to the inference data
    * @throws {Error} If the API request fails or returns an unsuccessful status
    */
-  async getPricePrediction(
-    asset: PricePredictionToken,
-    timeframe: PricePredictionTimeframe,
+  async getPriceInference(
+    asset: PriceInferenceToken,
+    timeframe: PriceInferenceTimeframe,
     signatureFormat: SignatureFormat = SignatureFormat.ETHEREUM_SEPOLIA,
   ): Promise<AlloraInference> {
     const response = await this.fetchAPIResponse<AlloraInference>(
@@ -152,7 +152,7 @@ export class AlloraAPIClient {
     );
 
     if (!response.data?.inference_data) {
-      throw new Error("Failed to fetch price prediction");
+      throw new Error("Failed to fetch price inference");
     }
     return response.data;
   }
