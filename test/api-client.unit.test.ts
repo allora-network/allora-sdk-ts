@@ -5,7 +5,7 @@ import {
   PriceInferenceTimeframe,
   ChainID,
   SignatureFormat,
-} from "../src/v2";
+} from "../src/v2/api-client";
 import { mockTopic, mockInference, mockAPIResponse } from "./mockData";
 
 describe("AlloraAPIClient Unit Tests", () => {
