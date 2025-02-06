@@ -1,36 +1,76 @@
-import {
-  AlloraChainClient,
-} from "../src/v2/chain-client";
-import { QueryBalanceResponse } from "../src/v2/types/generated/cosmos/bank/v1beta1/query";
-import { GetActiveReputersForTopicResponse, GetTotalStakeRequest, GetTotalStakeResponse } from "../src/v2/types/generated/emissions/v7/query";
+import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+import { coin } from "@cosmjs/stargate";
+import { AlloraChainClient } from "../src/v2/allora-chain-client";
+import { Decimal } from "@cosmjs/math";
 
 const RPC_URL = "https://allora-rpc.testnet.allora.network";
 
-describe.only("AlloraChainSDK Unit Tests", () => {
+describe("AlloraChainSDK Unit Tests", () => {
   let client: AlloraChainClient;
-  
+
   beforeAll(async () => {
-    client = await AlloraChainClient.create(RPC_URL);
+    client = await AlloraChainClient.init(RPC_URL);
   });
 
   it("Test running queries", async () => {
     console.log("Fetching total stake...");
-    const totalStake: GetTotalStakeResponse = await client.query.emissions.GetTotalStake(GetTotalStakeRequest.fromJSON({}));
+    const totalStake = await client.emissions.getTotalStake();
     console.log("Total stake amount: ", totalStake.amount);
 
-    console.log("Fetching active reputers on topics")
-    const activeReputers: GetActiveReputersForTopicResponse = await client.query.emissions.GetActiveReputersForTopic({
-      topicId: "29",
-    });
+    console.log("Fetching active reputers on topics");
+    const activeReputers =
+      await client.emissions.getActiveReputersForTopic("29");
     console.log("Active reputers: ", activeReputers.reputers);
 
-    console.log("Fetch user balance")
-    const userBalance: QueryBalanceResponse = await client.query.bank.Balance({
-      address: "allo1853zalc0tgqcn5ma4y8psg6h3kgk2vt68h2ejg",
-      denom: "uallo",
-    });
+    console.log("Fetch user balance");
+    const userBalance = await client.bank.getBalance(
+      "allo1853zalc0tgqcn5ma4y8psg6h3kgk2vt68h2ejg",
+      "uallo",
+    );
     console.log("User balance: ", userBalance.balance);
   });
 
-});
+  it.only("Test delegate stake to reputer", async () => {
+    const signer = await DirectSecp256k1HdWallet.fromMnemonic(
+      "rubber vehicle aerobic onion pulse green frost antenna wife sight forget match illegal badge shadow relief feed whisper canyon truth shed wasp damp sail",
+      { prefix: "allo" },
+    );
+    await client.connect(signer);
+    const signerAddress = (await signer.getAccounts())[0].address;
+    const txResponse = await client.emissions.delegateStakeToReputer(
+      signerAddress,
+      "29",
+      "allo1n29ulnkuze6pwu8tyux6qjvwa2gsjf0983e04u",
+      "1",
+    );
+    console.log("Transaction response: ", txResponse);
+  });
 
+  it("Test running transactions", async () => {
+    const signer = await DirectSecp256k1HdWallet.fromMnemonic(
+      "rubber vehicle aerobic onion pulse green frost antenna wife sight forget match illegal badge shadow relief feed whisper canyon truth shed wasp damp sail",
+      { prefix: "allo" },
+    );
+    await client.connect(signer, {
+      gasPrice: {
+        amount: Decimal.fromUserInput("10", 0),
+        denom: "uallo",
+      },
+    });
+
+    const signerAddress = (await signer.getAccounts())[0].address;
+
+    const txResponse = await client.bank.send(signerAddress, signerAddress, [
+      coin(1, "uallo"),
+    ]);
+
+    console.log("Response msg:", txResponse);
+    // const msg = await client.tx.emissions.DelegateStake({
+    //   sender: signerAddress,
+    //   topicId: "29",
+    //   reputer: "allo1n29ulnkuze6pwu8tyux6qjvwa2gsjf0983e04u",
+    //   amount: "10",
+    // });
+    // console.log("Transaction: ", msg);
+  });
+});
