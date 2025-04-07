@@ -9,6 +9,8 @@ import { BankModule } from "./modules/bank";
 import { EmissionsModule } from "./modules/emissions";
 import { registryTypes } from "./types/registryTypes";
 import { Decimal } from "@cosmjs/math";
+import { BlockModule } from "./modules/block";
+import { AuthModule } from "./modules/auth";
 
 const defaultSigningClientOptions: SigningStargateClientOptions = {
   registry: new Registry([...registryTypes]),
@@ -27,6 +29,8 @@ export class AlloraChainClient {
   // Modules
   public bank: BankModule;
   public emissions: EmissionsModule;
+  public block: BlockModule;
+  public auth: AuthModule;
 
   public static async init(
     endpoint: string,
@@ -57,6 +61,8 @@ export class AlloraChainClient {
     // Initialize modules
     this.bank = new BankModule(this.queryClient, this.signingClient);
     this.emissions = new EmissionsModule(this.queryClient, this.signingClient);
+    this.block = new BlockModule(this.queryClient, this.signingClient);
+    this.auth = new AuthModule(this.queryClient, this.signingClient);
   }
 
   public async connect(
@@ -71,6 +77,8 @@ export class AlloraChainClient {
 
     this.bank = new BankModule(this.queryClient, this.signingClient);
     this.emissions = new EmissionsModule(this.queryClient, this.signingClient);
+    this.block = new BlockModule(this.queryClient, this.signingClient);
+    this.auth = new AuthModule(this.queryClient, this.signingClient);
 
     return this;
   }

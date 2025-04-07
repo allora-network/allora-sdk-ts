@@ -3,7 +3,4 @@ import { WorkerDataBundle } from "./generated/emissions/v3/worker";
 
 type ReputerDataBundle = ReputerValueBundle;
 
-export {
-  WorkerDataBundle,
-  ReputerDataBundle,
-};
+export { WorkerDataBundle, ReputerDataBundle };

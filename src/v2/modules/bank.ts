@@ -129,8 +129,6 @@ export class BankModule extends BaseModule<BankQueryClient> {
     fee: StdFee | "auto" | number = "auto",
     memo: string = "",
   ): Promise<DeliverTxResponse> {
-    const signingClient = this.assertSigningClient();
-
     const sendMsg = {
       typeUrl: "/cosmos.bank.v1beta1.MsgSend",
       value: MsgSend.fromPartial({
@@ -140,7 +138,12 @@ export class BankModule extends BaseModule<BankQueryClient> {
       }),
     };
 
-    return signingClient.signAndBroadcast(fromAddress, [sendMsg], fee, memo);
+    return this.signingClient.signAndBroadcast(
+      fromAddress,
+      [sendMsg],
+      fee,
+      memo,
+    );
   }
 
   async multiSend(
@@ -149,8 +152,6 @@ export class BankModule extends BaseModule<BankQueryClient> {
     fee: StdFee | "auto" | number = "auto",
     memo: string = "",
   ): Promise<DeliverTxResponse> {
-    const signingClient = this.assertSigningClient();
-
     const multiSendMsg = {
       typeUrl: "/cosmos.bank.v1beta1.MsgMultiSend",
       value: MsgMultiSend.fromPartial({
@@ -159,7 +160,7 @@ export class BankModule extends BaseModule<BankQueryClient> {
       }),
     };
 
-    return signingClient.signAndBroadcast(
+    return this.signingClient.signAndBroadcast(
       inputs[0].address,
       [multiSendMsg],
       fee,
@@ -173,8 +174,6 @@ export class BankModule extends BaseModule<BankQueryClient> {
     fee: StdFee | "auto" | number = "auto",
     memo: string = "",
   ): Promise<DeliverTxResponse> {
-    const signingClient = this.assertSigningClient();
-
     const burnMsg = {
       typeUrl: "/cosmos.bank.v1beta1.MsgBurn",
       value: MsgBurn.fromPartial({
@@ -183,7 +182,12 @@ export class BankModule extends BaseModule<BankQueryClient> {
       }),
     };
 
-    return signingClient.signAndBroadcast(fromAddress, [burnMsg], fee, memo);
+    return this.signingClient.signAndBroadcast(
+      fromAddress,
+      [burnMsg],
+      fee,
+      memo,
+    );
   }
 
   async updateParams(
@@ -192,8 +196,6 @@ export class BankModule extends BaseModule<BankQueryClient> {
     fee: StdFee | "auto" | number = "auto",
     memo: string = "",
   ): Promise<DeliverTxResponse> {
-    const signingClient = this.assertSigningClient();
-
     const updateParamsMsg = {
       typeUrl: "/cosmos.bank.v1beta1.MsgUpdateParams",
       value: MsgUpdateParams.fromPartial({
@@ -202,7 +204,7 @@ export class BankModule extends BaseModule<BankQueryClient> {
       }),
     };
 
-    return signingClient.signAndBroadcast(
+    return this.signingClient.signAndBroadcast(
       authority,
       [updateParamsMsg],
       fee,
@@ -217,8 +219,6 @@ export class BankModule extends BaseModule<BankQueryClient> {
     fee: StdFee | "auto" | number = "auto",
     memo: string = "",
   ): Promise<DeliverTxResponse> {
-    const signingClient = this.assertSigningClient();
-
     const setSendEnabledMsg = {
       typeUrl: "/cosmos.bank.v1beta1.MsgSetSendEnabled",
       value: MsgSetSendEnabled.fromPartial({
@@ -228,7 +228,7 @@ export class BankModule extends BaseModule<BankQueryClient> {
       }),
     };
 
-    return signingClient.signAndBroadcast(
+    return this.signingClient.signAndBroadcast(
       authority,
       [setSendEnabledMsg],
       fee,

@@ -5,5 +5,5 @@ export const registryTypes: [string, GeneratedType][] = [
   [
     "/emissions.v7.DelegateStakeRequest",
     DelegateStakeRequest as unknown as GeneratedType,
-  ]
+  ],
 ];

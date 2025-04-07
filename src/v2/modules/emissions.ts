@@ -1,4 +1,9 @@
-import { createProtobufRpcClient, DeliverTxResponse, QueryClient, StdFee } from "@cosmjs/stargate";
+import {
+  createProtobufRpcClient,
+  DeliverTxResponse,
+  QueryClient,
+  StdFee,
+} from "@cosmjs/stargate";
 import {
   QueryServiceClientImpl as EmissionsQueryClient,
   GetDelegateStakeInTopicInReputerResponse,
@@ -105,7 +110,49 @@ import {
 } from "../types/generated/emissions/v7/query";
 import { BaseModule } from "./base";
 import { SigningStargateClient } from "@cosmjs/stargate";
-import { AddStakeRequest, AddToGlobalAdminWhitelistRequest, AddToGlobalReputerWhitelistRequest, AddToGlobalWhitelistRequest, AddToGlobalWorkerWhitelistRequest, AddToTopicCreatorWhitelistRequest, AddToTopicReputerWhitelistRequest, AddToTopicWorkerWhitelistRequest, AddToWhitelistAdminRequest, BulkAddToGlobalReputerWhitelistRequest, BulkAddToGlobalWorkerWhitelistRequest, BulkAddToTopicReputerWhitelistRequest, BulkAddToTopicWorkerWhitelistRequest, BulkRemoveFromGlobalReputerWhitelistRequest, BulkRemoveFromGlobalWorkerWhitelistRequest, BulkRemoveFromTopicReputerWhitelistRequest, BulkRemoveFromTopicWorkerWhitelistRequest, CancelRemoveDelegateStakeRequest, CancelRemoveStakeRequest, CreateNewTopicRequest, DelegateStakeRequest, DisableTopicReputerWhitelistRequest, DisableTopicWorkerWhitelistRequest, EnableTopicReputerWhitelistRequest, EnableTopicWorkerWhitelistRequest, FundTopicRequest, InsertReputerPayloadRequest, InsertWorkerPayloadRequest, RegisterRequest, RemoveDelegateStakeRequest, RemoveFromGlobalAdminWhitelistRequest, RemoveFromGlobalReputerWhitelistRequest, RemoveFromGlobalWhitelistRequest, RemoveFromGlobalWorkerWhitelistRequest, RemoveFromTopicCreatorWhitelistRequest, RemoveFromTopicReputerWhitelistRequest, RemoveFromTopicWorkerWhitelistRequest, RemoveFromWhitelistAdminRequest, RemoveRegistrationRequest, RemoveStakeRequest, RewardDelegateStakeRequest } from "../types/generated/emissions/v7/tx";
+import {
+  AddStakeRequest,
+  AddToGlobalAdminWhitelistRequest,
+  AddToGlobalReputerWhitelistRequest,
+  AddToGlobalWhitelistRequest,
+  AddToGlobalWorkerWhitelistRequest,
+  AddToTopicCreatorWhitelistRequest,
+  AddToTopicReputerWhitelistRequest,
+  AddToTopicWorkerWhitelistRequest,
+  AddToWhitelistAdminRequest,
+  BulkAddToGlobalReputerWhitelistRequest,
+  BulkAddToGlobalWorkerWhitelistRequest,
+  BulkAddToTopicReputerWhitelistRequest,
+  BulkAddToTopicWorkerWhitelistRequest,
+  BulkRemoveFromGlobalReputerWhitelistRequest,
+  BulkRemoveFromGlobalWorkerWhitelistRequest,
+  BulkRemoveFromTopicReputerWhitelistRequest,
+  BulkRemoveFromTopicWorkerWhitelistRequest,
+  CancelRemoveDelegateStakeRequest,
+  CancelRemoveStakeRequest,
+  CreateNewTopicRequest,
+  DelegateStakeRequest,
+  DisableTopicReputerWhitelistRequest,
+  DisableTopicWorkerWhitelistRequest,
+  EnableTopicReputerWhitelistRequest,
+  EnableTopicWorkerWhitelistRequest,
+  FundTopicRequest,
+  InsertReputerPayloadRequest,
+  InsertWorkerPayloadRequest,
+  RegisterRequest,
+  RemoveDelegateStakeRequest,
+  RemoveFromGlobalAdminWhitelistRequest,
+  RemoveFromGlobalReputerWhitelistRequest,
+  RemoveFromGlobalWhitelistRequest,
+  RemoveFromGlobalWorkerWhitelistRequest,
+  RemoveFromTopicCreatorWhitelistRequest,
+  RemoveFromTopicReputerWhitelistRequest,
+  RemoveFromTopicWorkerWhitelistRequest,
+  RemoveFromWhitelistAdminRequest,
+  RemoveRegistrationRequest,
+  RemoveStakeRequest,
+  RewardDelegateStakeRequest,
+} from "../types/generated/emissions/v7/tx";
 import { ReputerDataBundle, WorkerDataBundle } from "../types/worker";
 
 export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
@@ -891,7 +938,14 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async register(sender: string, topicId: string, owner: string, isReputer: boolean, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async register(
+    sender: string,
+    topicId: string,
+    owner: string,
+    isReputer: boolean,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const registerMsg = {
       typeUrl: "/emissions.v7.RegisterRequest",
       value: RegisterRequest.fromPartial({
@@ -910,7 +964,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeRegistration(sender: string, topicId: string, isReputer: boolean, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeRegistration(
+    sender: string,
+    topicId: string,
+    isReputer: boolean,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeRegistrationMsg = {
       typeUrl: "/emissions.v7.RemoveRegistrationRequest",
       value: RemoveRegistrationRequest.fromPartial({
@@ -928,7 +988,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addStake(sender: string, topicId: string, amount: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addStake(
+    sender: string,
+    topicId: string,
+    amount: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addStakeMsg = {
       typeUrl: "/emissions.v7.AddStakeRequest",
       value: AddStakeRequest.fromPartial({
@@ -946,7 +1012,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeStake(sender: string, topicId: string, amount: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeStake(
+    sender: string,
+    topicId: string,
+    amount: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeStakeMsg = {
       typeUrl: "/emissions.v7.RemoveStakeRequest",
       value: RemoveStakeRequest.fromPartial({
@@ -964,7 +1036,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async cancelRemoveStake(sender: string, topicId: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async cancelRemoveStake(
+    sender: string,
+    topicId: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const cancelRemoveStakeMsg = {
       typeUrl: "/emissions.v7.CancelRemoveStakeRequest",
       value: CancelRemoveStakeRequest.fromPartial({
@@ -981,7 +1058,14 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async delegateStakeToReputer(sender: string, topicId: string, reputer: string, amount: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async delegateStakeToReputer(
+    sender: string,
+    topicId: string,
+    reputer: string,
+    amount: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const delegateStakeMsg = {
       typeUrl: "/emissions.v7.DelegateStakeRequest",
       value: DelegateStakeRequest.fromPartial({
@@ -1000,7 +1084,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async withdrawReputerDelegationRewards(sender: string, topicId: string, reputer: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async withdrawReputerDelegationRewards(
+    sender: string,
+    topicId: string,
+    reputer: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const withdrawReputerDelegationRewardsMsg = {
       typeUrl: "/emissions.v7.RewardDelegateStakeRequest",
       value: RewardDelegateStakeRequest.fromPartial({
@@ -1018,7 +1108,14 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeStakeFromReputer(sender: string, topicId: string, reputer: string, amount: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeStakeFromReputer(
+    sender: string,
+    topicId: string,
+    reputer: string,
+    amount: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeDelegateStakeMsg = {
       typeUrl: "/emissions.v7.RemoveDelegateStakeRequest",
       value: RemoveDelegateStakeRequest.fromPartial({
@@ -1037,7 +1134,14 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async cancelRemoveStakeFromReputer(sender: string, topicId: string, delegator: string, reputer: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async cancelRemoveStakeFromReputer(
+    sender: string,
+    topicId: string,
+    delegator: string,
+    reputer: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const cancelRemoveStakeFromReputerMsg = {
       typeUrl: "/emissions.v7.CancelRemoveDelegateStakeRequest",
       value: CancelRemoveDelegateStakeRequest.fromPartial({
@@ -1056,7 +1160,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async fundTopic(sender: string, topicId: string, amount: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async fundTopic(
+    sender: string,
+    topicId: string,
+    amount: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const fundTopicMsg = {
       typeUrl: "/emissions.v7.FundTopicRequest",
       value: FundTopicRequest.fromPartial({
@@ -1074,7 +1184,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToWhitelistAdmin(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToWhitelistAdmin(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToWhitelistAdminMsg = {
       typeUrl: "/emissions.v7.AddToWhitelistAdminRequest",
       value: AddToWhitelistAdminRequest.fromPartial({
@@ -1091,7 +1206,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromWhitelistAdmin(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromWhitelistAdmin(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromWhitelistAdminMsg = {
       typeUrl: "/emissions.v7.RemoveFromWhitelistAdminRequest",
       value: RemoveFromWhitelistAdminRequest.fromPartial({
@@ -1108,7 +1228,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async insertWorkerPayload(sender: string, workerDataBundle: WorkerDataBundle, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async insertWorkerPayload(
+    sender: string,
+    workerDataBundle: WorkerDataBundle,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const insertWorkerPayloadMsg = {
       typeUrl: "/emissions.v7.InsertWorkerPayloadRequest",
       value: InsertWorkerPayloadRequest.fromPartial({
@@ -1125,7 +1250,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async insertReputerPayload(sender: string, reputerDataBundle: ReputerDataBundle, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async insertReputerPayload(
+    sender: string,
+    reputerDataBundle: ReputerDataBundle,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const insertReputerPayloadMsg = {
       typeUrl: "/emissions.v7.InsertReputerPayloadRequest",
       value: InsertReputerPayloadRequest.fromPartial({
@@ -1142,7 +1272,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToGlobalWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToGlobalWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToGlobalWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToGlobalWhitelistRequest",
       value: AddToGlobalWhitelistRequest.fromPartial({
@@ -1159,7 +1294,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromGlobalWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromGlobalWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromGlobalWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromGlobalWhitelistRequest",
       value: RemoveFromGlobalWhitelistRequest.fromPartial({
@@ -1176,7 +1316,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToGlobalWorkerWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToGlobalWorkerWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToGlobalWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToGlobalWorkerWhitelistRequest",
       value: AddToGlobalWorkerWhitelistRequest.fromPartial({
@@ -1193,7 +1338,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromGlobalWorkerWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromGlobalWorkerWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromGlobalWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromGlobalWorkerWhitelistRequest",
       value: RemoveFromGlobalWorkerWhitelistRequest.fromPartial({
@@ -1210,7 +1360,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToGlobalReputerWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToGlobalReputerWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToGlobalReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToGlobalReputerWhitelistRequest",
       value: AddToGlobalReputerWhitelistRequest.fromPartial({
@@ -1227,7 +1382,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromGlobalReputerWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromGlobalReputerWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromGlobalReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromGlobalReputerWhitelistRequest",
       value: RemoveFromGlobalReputerWhitelistRequest.fromPartial({
@@ -1243,8 +1403,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
       memo,
     );
   }
-  
-  async addToGlobalAdminWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+
+  async addToGlobalAdminWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToGlobalAdminWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToGlobalAdminWhitelistRequest",
       value: AddToGlobalAdminWhitelistRequest.fromPartial({
@@ -1261,7 +1426,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromGlobalAdminWhitelist(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromGlobalAdminWhitelist(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromGlobalAdminWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromGlobalAdminWhitelistRequest",
       value: RemoveFromGlobalAdminWhitelistRequest.fromPartial({
@@ -1278,7 +1448,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkAddToGlobalWorkerWhitelist(sender: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkAddToGlobalWorkerWhitelist(
+    sender: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkAddToGlobalWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkAddToGlobalWorkerWhitelistRequest",
       value: BulkAddToGlobalWorkerWhitelistRequest.fromPartial({
@@ -1294,8 +1469,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
       memo,
     );
   }
-  
-  async bulkRemoveFromGlobalWorkerWhitelist(sender: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+
+  async bulkRemoveFromGlobalWorkerWhitelist(
+    sender: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkRemoveFromGlobalWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkRemoveFromGlobalWorkerWhitelistRequest",
       value: BulkRemoveFromGlobalWorkerWhitelistRequest.fromPartial({
@@ -1312,7 +1492,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkAddToGlobalReputerWhitelist(sender: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkAddToGlobalReputerWhitelist(
+    sender: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkAddToGlobalReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkAddToGlobalReputerWhitelistRequest",
       value: BulkAddToGlobalReputerWhitelistRequest.fromPartial({
@@ -1329,7 +1514,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkRemoveFromGlobalReputerWhitelist(sender: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkRemoveFromGlobalReputerWhitelist(
+    sender: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkRemoveFromGlobalReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkRemoveFromGlobalReputerWhitelistRequest",
       value: BulkRemoveFromGlobalReputerWhitelistRequest.fromPartial({
@@ -1346,7 +1536,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkAddToTopicWorkerWhitelist(sender: string, topicId: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkAddToTopicWorkerWhitelist(
+    sender: string,
+    topicId: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkAddToTopicWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkAddToTopicWorkerWhitelistRequest",
       value: BulkAddToTopicWorkerWhitelistRequest.fromPartial({
@@ -1364,7 +1560,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkRemoveFromTopicWorkerWhitelist(sender: string, topicId: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkRemoveFromTopicWorkerWhitelist(
+    sender: string,
+    topicId: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkRemoveFromTopicWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkRemoveFromTopicWorkerWhitelistRequest",
       value: BulkRemoveFromTopicWorkerWhitelistRequest.fromPartial({
@@ -1382,7 +1584,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkAddToTopicReputerWhitelist(sender: string, topicId: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkAddToTopicReputerWhitelist(
+    sender: string,
+    topicId: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkAddToTopicReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkAddToTopicReputerWhitelistRequest",
       value: BulkAddToTopicReputerWhitelistRequest.fromPartial({
@@ -1400,7 +1608,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async bulkRemoveFromTopicReputerWhitelist(sender: string, topicId: string, addresses: string[], fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async bulkRemoveFromTopicReputerWhitelist(
+    sender: string,
+    topicId: string,
+    addresses: string[],
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const bulkRemoveFromTopicReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.BulkRemoveFromTopicReputerWhitelistRequest",
       value: BulkRemoveFromTopicReputerWhitelistRequest.fromPartial({
@@ -1418,7 +1632,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async enableTopicWorkerWhitelistRequest(sender: string, topicId: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async enableTopicWorkerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const enableTopicWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.EnableTopicWorkerWhitelistRequest",
       value: EnableTopicWorkerWhitelistRequest.fromPartial({
@@ -1435,7 +1654,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async disableTopicWorkerWhitelistRequest(sender: string, topicId: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async disableTopicWorkerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const disableTopicWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.DisableTopicWorkerWhitelistRequest",
       value: DisableTopicWorkerWhitelistRequest.fromPartial({
@@ -1452,7 +1676,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async enableTopicReputerWhitelistRequest(sender: string, topicId: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async enableTopicReputerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const enableTopicReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.EnableTopicReputerWhitelistRequest",
       value: EnableTopicReputerWhitelistRequest.fromPartial({
@@ -1468,8 +1697,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
       memo,
     );
   }
- 
-  async disableTopicReputerWhitelistRequest(sender: string, topicId: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+
+  async disableTopicReputerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const disableTopicReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.DisableTopicReputerWhitelistRequest",
       value: DisableTopicReputerWhitelistRequest.fromPartial({
@@ -1486,7 +1720,12 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToTopicCreatorWhitelistRequest(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToTopicCreatorWhitelistRequest(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToTopicCreatorWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToTopicCreatorWhitelistRequest",
       value: AddToTopicCreatorWhitelistRequest.fromPartial({
@@ -1502,8 +1741,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
       memo,
     );
   }
-  
-  async removeFromTopicCreatorWhitelistRequest(sender: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+
+  async removeFromTopicCreatorWhitelistRequest(
+    sender: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromTopicCreatorWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromTopicCreatorWhitelistRequest",
       value: RemoveFromTopicCreatorWhitelistRequest.fromPartial({
@@ -1520,7 +1764,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToTopicWorkerWhitelistRequest(sender: string, topicId: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToTopicWorkerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToTopicWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToTopicWorkerWhitelistRequest",
       value: AddToTopicWorkerWhitelistRequest.fromPartial({
@@ -1538,7 +1788,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromTopicWorkerWhitelistRequest(sender: string, topicId: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromTopicWorkerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromTopicWorkerWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromTopicWorkerWhitelistRequest",
       value: RemoveFromTopicWorkerWhitelistRequest.fromPartial({
@@ -1556,7 +1812,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async addToTopicReputerWhitelistRequest(sender: string, topicId: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async addToTopicReputerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const addToTopicReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.AddToTopicReputerWhitelistRequest",
       value: AddToTopicReputerWhitelistRequest.fromPartial({
@@ -1574,7 +1836,13 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 
-  async removeFromTopicReputerWhitelistRequest(sender: string, topicId: string, address: string, fee: StdFee | "auto" | number = "auto", memo: string = "") {
+  async removeFromTopicReputerWhitelistRequest(
+    sender: string,
+    topicId: string,
+    address: string,
+    fee: StdFee | "auto" | number = "auto",
+    memo: string = "",
+  ) {
     const removeFromTopicReputerWhitelistMsg = {
       typeUrl: "/emissions.v7.RemoveFromTopicReputerWhitelistRequest",
       value: RemoveFromTopicReputerWhitelistRequest.fromPartial({
@@ -1592,4 +1860,3 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     );
   }
 }
-
