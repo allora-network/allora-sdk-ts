@@ -102,12 +102,15 @@ export class AlloraAPIClient {
     let continuationToken: ContinuationToken = null;
 
     do {
-      const response: {data: TopicsResponse} = await this.fetchAPIResponse<TopicsResponse>(
-        `allora/${this.chainID}/topics`,
-        continuationToken ? {
-          continuation_token: continuationToken,
-        } : {},
-      );
+      const response: { data: TopicsResponse } =
+        await this.fetchAPIResponse<TopicsResponse>(
+          `allora/${this.chainID}/topics`,
+          continuationToken
+            ? {
+                continuation_token: continuationToken,
+              }
+            : {},
+        );
 
       allTopics.push(...response.data.topics);
       continuationToken = response.data.continuation_token;
@@ -177,7 +180,8 @@ export class AlloraAPIClient {
     params: Record<string, string> = {},
   ): Promise<AlloraAPIResponse<T>> {
     const queryString = new URLSearchParams(params).toString();
-    const requestUrl = this.getRequestUrl(endpoint) + (queryString ? `?${queryString}` : '');
+    const requestUrl =
+      this.getRequestUrl(endpoint) + (queryString ? `?${queryString}` : "");
     const response = await fetch(requestUrl, {
       method: "GET",
       headers: {
