@@ -16,3 +16,4 @@ tsconfig.json
 yarn-error.log
 yarn.lock
 dist/
+src/v2/types/generated/
