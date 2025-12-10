@@ -24,7 +24,6 @@ import {
 } from "../types/generated/cosmos/bank/v1beta1/query";
 import { PageRequest } from "../types/generated/cosmos/base/query/v1beta1/pagination";
 import {
-  MsgBurn,
   MsgMultiSend,
   MsgSend,
   MsgSetSendEnabled,
@@ -117,8 +116,9 @@ export class BankModule extends BaseModule<BankQueryClient> {
 
   public async getSendEnabled(
     denoms: string[],
+    pagination?: PageRequest,
   ): Promise<QuerySendEnabledResponse> {
-    return this.queryService.SendEnabled({ denoms });
+    return this.queryService.SendEnabled({ denoms, pagination });
   }
 
   // Tx methods
@@ -163,28 +163,6 @@ export class BankModule extends BaseModule<BankQueryClient> {
     return this.signingClient.signAndBroadcast(
       inputs[0].address,
       [multiSendMsg],
-      fee,
-      memo,
-    );
-  }
-
-  async burn(
-    fromAddress: string,
-    amount: Coin[],
-    fee: StdFee | "auto" | number = "auto",
-    memo: string = "",
-  ): Promise<DeliverTxResponse> {
-    const burnMsg = {
-      typeUrl: "/cosmos.bank.v1beta1.MsgBurn",
-      value: MsgBurn.fromPartial({
-        fromAddress,
-        amount,
-      }),
-    };
-
-    return this.signingClient.signAndBroadcast(
-      fromAddress,
-      [burnMsg],
       fee,
       memo,
     );

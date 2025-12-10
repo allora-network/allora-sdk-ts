@@ -17,10 +17,10 @@ describe("AlloraChainSDK Unit Tests", () => {
     const totalStake = await client.emissions.getTotalStake();
     console.log("Total stake amount: ", totalStake.amount);
 
-    console.log("Fetching active reputers on topics");
-    const activeReputers =
-      await client.emissions.getActiveReputersForTopic("29");
-    console.log("Active reputers: ", activeReputers.reputers);
+    console.log("Fetching latest network inferences on topic");
+    const networkInferences =
+      await client.emissions.getLatestNetworkInferences("29");
+    console.log("Network inferences: ", networkInferences.networkInferences?.combinedValue);
 
     console.log("Fetch user balance");
     const userBalance = await client.bank.getBalance(
@@ -30,7 +30,7 @@ describe("AlloraChainSDK Unit Tests", () => {
     console.log("User balance: ", userBalance.balance);
   });
 
-  it.only("Test delegate stake to reputer", async () => {
+  it.skip("Test delegate stake to reputer", async () => {
     const signer = await DirectSecp256k1HdWallet.fromMnemonic(
       "rubber vehicle aerobic onion pulse green frost antenna wife sight forget match illegal badge shadow relief feed whisper canyon truth shed wasp damp sail",
       { prefix: "allo" },

@@ -3,6 +3,9 @@ yarn-error.log
 
 dist/
 
+# Generated proto files
+src/v2/types/generated/
+proto-deps/
 
 # Yarn v3
 .pnp.*
@@ -17,3 +20,6 @@ dist/
 .omega.json
 *.sublime-project
 *.sublime-workspace
+.DS_Store
+.claude/
+mnemonic*

@@ -12,8 +12,8 @@ import {
   GetForecastsAtBlockResponse,
   GetInferencesAtBlockResponse,
   GetInfererNetworkRegretResponse,
-  GetLatestAvailableNetworkInferencesOutlierResistantResponse,
-  GetLatestAvailableNetworkInferencesResponse,
+  GetLatestNetworkInferencesOutlierResistantResponse,
+  GetLatestNetworkInferencesResponse,
   GetLatestTopicInferencesResponse,
   GetMultiReputerStakeInTopicResponse,
   GetNetworkInferencesAtBlockOutlierResistantResponse,
@@ -84,9 +84,6 @@ import {
   GetNextChurningBlockByTopicIdResponse,
   GetCountInfererInclusionsInTopicResponse,
   GetCountForecasterInclusionsInTopicResponse,
-  GetActiveReputersForTopicResponse,
-  GetActiveForecastersForTopicResponse,
-  GetActiveInferersForTopicResponse,
   IsWhitelistedGlobalWorkerResponse,
   IsWhitelistedGlobalReputerResponse,
   IsWhitelistedGlobalAdminResponse,
@@ -107,7 +104,7 @@ import {
   GetTopicInitialInfererEmaScoreResponse,
   GetTopicInitialForecasterEmaScoreResponse,
   GetTopicInitialReputerEmaScoreResponse,
-} from "../types/generated/emissions/v7/query";
+} from "../types/generated/emissions/v9/query";
 import { BaseModule } from "./base";
 import { SigningStargateClient } from "@cosmjs/stargate";
 import {
@@ -152,7 +149,7 @@ import {
   RemoveRegistrationRequest,
   RemoveStakeRequest,
   RewardDelegateStakeRequest,
-} from "../types/generated/emissions/v7/tx";
+} from "../types/generated/emissions/v9/tx";
 import { ReputerDataBundle, WorkerDataBundle } from "../types/worker";
 
 export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
@@ -344,16 +341,16 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     });
   }
 
-  public async getLatestAvailableNetworkInferences(
+  public async getLatestNetworkInferences(
     topicId: string,
-  ): Promise<GetLatestAvailableNetworkInferencesResponse> {
-    return this.queryService.GetLatestAvailableNetworkInferences({ topicId });
+  ): Promise<GetLatestNetworkInferencesResponse> {
+    return this.queryService.GetLatestNetworkInferences({ topicId });
   }
 
-  public async getLatestAvailableNetworkInferencesOutlierResistant(
+  public async getLatestNetworkInferencesOutlierResistant(
     topicId: string,
-  ): Promise<GetLatestAvailableNetworkInferencesOutlierResistantResponse> {
-    return this.queryService.GetLatestAvailableNetworkInferencesOutlierResistant(
+  ): Promise<GetLatestNetworkInferencesOutlierResistantResponse> {
+    return this.queryService.GetLatestNetworkInferencesOutlierResistant(
       { topicId },
     );
   }
@@ -776,24 +773,6 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     });
   }
 
-  public async getActiveReputersForTopic(
-    topicId: string,
-  ): Promise<GetActiveReputersForTopicResponse> {
-    return this.queryService.GetActiveReputersForTopic({ topicId });
-  }
-
-  public async getActiveForecastersForTopic(
-    topicId: string,
-  ): Promise<GetActiveForecastersForTopicResponse> {
-    return this.queryService.GetActiveForecastersForTopic({ topicId });
-  }
-
-  public async getActiveInferersForTopic(
-    topicId: string,
-  ): Promise<GetActiveInferersForTopicResponse> {
-    return this.queryService.GetActiveInferersForTopic({ topicId });
-  }
-
   public async isWhitelistedGlobalWorker(
     address: string,
   ): Promise<IsWhitelistedGlobalWorkerResponse> {
@@ -926,7 +905,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ): Promise<DeliverTxResponse> {
     const createNewTopicMsg = {
-      typeUrl: "/emissions.v7.CreateNewTopicRequest",
+      typeUrl: "/emissions.v9.CreateNewTopicRequest",
       value: topicConfig,
     };
 
@@ -947,7 +926,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const registerMsg = {
-      typeUrl: "/emissions.v7.RegisterRequest",
+      typeUrl: "/emissions.v9.RegisterRequest",
       value: RegisterRequest.fromPartial({
         sender,
         topicId,
@@ -972,7 +951,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeRegistrationMsg = {
-      typeUrl: "/emissions.v7.RemoveRegistrationRequest",
+      typeUrl: "/emissions.v9.RemoveRegistrationRequest",
       value: RemoveRegistrationRequest.fromPartial({
         sender,
         topicId,
@@ -996,7 +975,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addStakeMsg = {
-      typeUrl: "/emissions.v7.AddStakeRequest",
+      typeUrl: "/emissions.v9.AddStakeRequest",
       value: AddStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1020,7 +999,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeStakeMsg = {
-      typeUrl: "/emissions.v7.RemoveStakeRequest",
+      typeUrl: "/emissions.v9.RemoveStakeRequest",
       value: RemoveStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1043,7 +1022,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const cancelRemoveStakeMsg = {
-      typeUrl: "/emissions.v7.CancelRemoveStakeRequest",
+      typeUrl: "/emissions.v9.CancelRemoveStakeRequest",
       value: CancelRemoveStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1067,7 +1046,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const delegateStakeMsg = {
-      typeUrl: "/emissions.v7.DelegateStakeRequest",
+      typeUrl: "/emissions.v9.DelegateStakeRequest",
       value: DelegateStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1092,7 +1071,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const withdrawReputerDelegationRewardsMsg = {
-      typeUrl: "/emissions.v7.RewardDelegateStakeRequest",
+      typeUrl: "/emissions.v9.RewardDelegateStakeRequest",
       value: RewardDelegateStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1117,7 +1096,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeDelegateStakeMsg = {
-      typeUrl: "/emissions.v7.RemoveDelegateStakeRequest",
+      typeUrl: "/emissions.v9.RemoveDelegateStakeRequest",
       value: RemoveDelegateStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1143,7 +1122,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const cancelRemoveStakeFromReputerMsg = {
-      typeUrl: "/emissions.v7.CancelRemoveDelegateStakeRequest",
+      typeUrl: "/emissions.v9.CancelRemoveDelegateStakeRequest",
       value: CancelRemoveDelegateStakeRequest.fromPartial({
         sender,
         topicId,
@@ -1168,7 +1147,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const fundTopicMsg = {
-      typeUrl: "/emissions.v7.FundTopicRequest",
+      typeUrl: "/emissions.v9.FundTopicRequest",
       value: FundTopicRequest.fromPartial({
         sender,
         topicId,
@@ -1191,7 +1170,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToWhitelistAdminMsg = {
-      typeUrl: "/emissions.v7.AddToWhitelistAdminRequest",
+      typeUrl: "/emissions.v9.AddToWhitelistAdminRequest",
       value: AddToWhitelistAdminRequest.fromPartial({
         sender,
         address,
@@ -1213,7 +1192,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromWhitelistAdminMsg = {
-      typeUrl: "/emissions.v7.RemoveFromWhitelistAdminRequest",
+      typeUrl: "/emissions.v9.RemoveFromWhitelistAdminRequest",
       value: RemoveFromWhitelistAdminRequest.fromPartial({
         sender,
         address,
@@ -1235,7 +1214,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const insertWorkerPayloadMsg = {
-      typeUrl: "/emissions.v7.InsertWorkerPayloadRequest",
+      typeUrl: "/emissions.v9.InsertWorkerPayloadRequest",
       value: InsertWorkerPayloadRequest.fromPartial({
         sender,
         workerDataBundle,
@@ -1257,7 +1236,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const insertReputerPayloadMsg = {
-      typeUrl: "/emissions.v7.InsertReputerPayloadRequest",
+      typeUrl: "/emissions.v9.InsertReputerPayloadRequest",
       value: InsertReputerPayloadRequest.fromPartial({
         sender,
         reputerValueBundle: reputerDataBundle,
@@ -1279,7 +1258,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToGlobalWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToGlobalWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToGlobalWhitelistRequest",
       value: AddToGlobalWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1301,7 +1280,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromGlobalWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromGlobalWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromGlobalWhitelistRequest",
       value: RemoveFromGlobalWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1323,7 +1302,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToGlobalWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToGlobalWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToGlobalWorkerWhitelistRequest",
       value: AddToGlobalWorkerWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1345,7 +1324,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromGlobalWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromGlobalWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromGlobalWorkerWhitelistRequest",
       value: RemoveFromGlobalWorkerWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1367,7 +1346,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToGlobalReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToGlobalReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToGlobalReputerWhitelistRequest",
       value: AddToGlobalReputerWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1389,7 +1368,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromGlobalReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromGlobalReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromGlobalReputerWhitelistRequest",
       value: RemoveFromGlobalReputerWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1411,7 +1390,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToGlobalAdminWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToGlobalAdminWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToGlobalAdminWhitelistRequest",
       value: AddToGlobalAdminWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1433,7 +1412,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromGlobalAdminWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromGlobalAdminWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromGlobalAdminWhitelistRequest",
       value: RemoveFromGlobalAdminWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1455,7 +1434,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkAddToGlobalWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkAddToGlobalWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkAddToGlobalWorkerWhitelistRequest",
       value: BulkAddToGlobalWorkerWhitelistRequest.fromPartial({
         sender,
         addresses,
@@ -1477,7 +1456,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkRemoveFromGlobalWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkRemoveFromGlobalWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkRemoveFromGlobalWorkerWhitelistRequest",
       value: BulkRemoveFromGlobalWorkerWhitelistRequest.fromPartial({
         sender,
         addresses,
@@ -1499,7 +1478,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkAddToGlobalReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkAddToGlobalReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkAddToGlobalReputerWhitelistRequest",
       value: BulkAddToGlobalReputerWhitelistRequest.fromPartial({
         sender,
         addresses,
@@ -1521,7 +1500,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkRemoveFromGlobalReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkRemoveFromGlobalReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkRemoveFromGlobalReputerWhitelistRequest",
       value: BulkRemoveFromGlobalReputerWhitelistRequest.fromPartial({
         sender,
         addresses,
@@ -1544,7 +1523,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkAddToTopicWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkAddToTopicWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkAddToTopicWorkerWhitelistRequest",
       value: BulkAddToTopicWorkerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1568,7 +1547,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkRemoveFromTopicWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkRemoveFromTopicWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkRemoveFromTopicWorkerWhitelistRequest",
       value: BulkRemoveFromTopicWorkerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1592,7 +1571,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkAddToTopicReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkAddToTopicReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkAddToTopicReputerWhitelistRequest",
       value: BulkAddToTopicReputerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1616,7 +1595,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const bulkRemoveFromTopicReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.BulkRemoveFromTopicReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.BulkRemoveFromTopicReputerWhitelistRequest",
       value: BulkRemoveFromTopicReputerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1639,7 +1618,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const enableTopicWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.EnableTopicWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.EnableTopicWorkerWhitelistRequest",
       value: EnableTopicWorkerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1661,7 +1640,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const disableTopicWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.DisableTopicWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.DisableTopicWorkerWhitelistRequest",
       value: DisableTopicWorkerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1683,7 +1662,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const enableTopicReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.EnableTopicReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.EnableTopicReputerWhitelistRequest",
       value: EnableTopicReputerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1705,7 +1684,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const disableTopicReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.DisableTopicReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.DisableTopicReputerWhitelistRequest",
       value: DisableTopicReputerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1727,7 +1706,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToTopicCreatorWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToTopicCreatorWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToTopicCreatorWhitelistRequest",
       value: AddToTopicCreatorWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1749,7 +1728,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromTopicCreatorWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromTopicCreatorWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromTopicCreatorWhitelistRequest",
       value: RemoveFromTopicCreatorWhitelistRequest.fromPartial({
         sender,
         address,
@@ -1772,7 +1751,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToTopicWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToTopicWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToTopicWorkerWhitelistRequest",
       value: AddToTopicWorkerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1796,7 +1775,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromTopicWorkerWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromTopicWorkerWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromTopicWorkerWhitelistRequest",
       value: RemoveFromTopicWorkerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1820,7 +1799,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const addToTopicReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.AddToTopicReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.AddToTopicReputerWhitelistRequest",
       value: AddToTopicReputerWhitelistRequest.fromPartial({
         sender,
         topicId,
@@ -1844,7 +1823,7 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
     memo: string = "",
   ) {
     const removeFromTopicReputerWhitelistMsg = {
-      typeUrl: "/emissions.v7.RemoveFromTopicReputerWhitelistRequest",
+      typeUrl: "/emissions.v9.RemoveFromTopicReputerWhitelistRequest",
       value: RemoveFromTopicReputerWhitelistRequest.fromPartial({
         sender,
         topicId,
