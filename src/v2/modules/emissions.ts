@@ -350,9 +350,9 @@ export class EmissionsModule extends BaseModule<EmissionsQueryClient> {
   public async getLatestNetworkInferencesOutlierResistant(
     topicId: string,
   ): Promise<GetLatestNetworkInferencesOutlierResistantResponse> {
-    return this.queryService.GetLatestNetworkInferencesOutlierResistant(
-      { topicId },
-    );
+    return this.queryService.GetLatestNetworkInferencesOutlierResistant({
+      topicId,
+    });
   }
 
   public async IsWorkerNonceUnfulfilled(

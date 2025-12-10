@@ -20,7 +20,10 @@ describe("AlloraChainSDK Unit Tests", () => {
     console.log("Fetching latest network inferences on topic");
     const networkInferences =
       await client.emissions.getLatestNetworkInferences("29");
-    console.log("Network inferences: ", networkInferences.networkInferences?.combinedValue);
+    console.log(
+      "Network inferences: ",
+      networkInferences.networkInferences?.combinedValue,
+    );
 
     console.log("Fetch user balance");
     const userBalance = await client.bank.getBalance(
