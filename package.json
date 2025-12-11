@@ -12,6 +12,7 @@
     "url": "git+https://github.com/allora-network/allora-sdk-ts.git"
   },
   "scripts": {
+    "prepare": "make proto-deps && make proto && npm run build",
     "format": "npx prettier -w ./*",
     "check-format": "npx prettier --check ./*",
     "build": "npx tsc",
