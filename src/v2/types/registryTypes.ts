@@ -1,4 +1,5 @@
 import { GeneratedType } from "@cosmjs/proto-signing";
+import { MsgSend } from "./generated/cosmos/bank/v1beta1/tx";
 import {
   CreateNewTopicRequest,
   FundTopicRequest,
@@ -44,6 +45,9 @@ import {
 } from "./generated/emissions/v9/tx";
 
 export const registryTypes: [string, GeneratedType][] = [
+  // Cosmos bank
+  ["/cosmos.bank.v1beta1.MsgSend", MsgSend as unknown as GeneratedType],
+
   // Topic management
   [
     "/emissions.v9.CreateNewTopicRequest",
