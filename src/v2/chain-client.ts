@@ -3,7 +3,7 @@ import { createProtobufRpcClient, QueryClient } from "@cosmjs/stargate";
 import { Tendermint34Client } from "@cosmjs/tendermint-rpc";
 import { Decimal } from "@cosmjs/math";
 // Import all generated query clients
-import { QueryServiceClientImpl as EmissionsQueryClient } from "./types/generated/emissions/v7/query";
+import { QueryServiceClientImpl as EmissionsQueryClient } from "./types/generated/emissions/v9/query";
 import { QueryClientImpl as BankQueryClient } from "./types/generated/cosmos/bank/v1beta1/query";
 import { QueryClientImpl as AuthQueryClient } from "./types/generated/cosmos/auth/v1beta1/query";
 import { QueryClientImpl as AuthzQueryClient } from "./types/generated/cosmos/authz/v1beta1/query";
@@ -23,7 +23,7 @@ import { QueryClientImpl as UpgradeQueryClient } from "./types/generated/cosmos/
 import {
   DelegateStakeRequest,
   MsgServiceClientImpl as EmissionsMsgClient,
-} from "./types/generated/emissions/v7/tx";
+} from "./types/generated/emissions/v9/tx";
 import { MsgClientImpl as BankMsgClient } from "./types/generated/cosmos/bank/v1beta1/tx";
 import { MsgClientImpl as AuthMsgClient } from "./types/generated/cosmos/auth/v1beta1/tx";
 import { MsgClientImpl as AuthzMsgClient } from "./types/generated/cosmos/authz/v1beta1/tx";

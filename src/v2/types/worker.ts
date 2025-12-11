@@ -1,6 +1,7 @@
-import { ReputerValueBundle } from "./generated/emissions/v3/reputer";
-import { WorkerDataBundle } from "./generated/emissions/v3/worker";
+import { InputReputerValueBundle } from "./generated/emissions/v9/inputreputer";
+import { InputWorkerDataBundle } from "./generated/emissions/v9/inputworker";
 
-type ReputerDataBundle = ReputerValueBundle;
+type ReputerDataBundle = InputReputerValueBundle;
+type WorkerDataBundle = InputWorkerDataBundle;
 
 export { WorkerDataBundle, ReputerDataBundle };
