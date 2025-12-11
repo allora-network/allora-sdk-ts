@@ -82,9 +82,9 @@ $(PROTO_STAMP): proto-deps | $(PROTOS_OUT_DIR)
 
 	# Generate TypeScript using ts-proto
 	# Options match what was used originally - generates service clients
-	# Use $$(npm bin) to find the binary path dynamically
+	# Use node to resolve the ts-proto binary path
 	npx protoc \
-		--plugin=protoc-gen-ts_proto=$$(npm bin)/protoc-gen-ts_proto \
+		--plugin=protoc-gen-ts_proto=$$(node -e "console.log(require.resolve('ts-proto/protoc-gen-ts_proto'))") \
 		--ts_proto_out="$(PROTOS_OUT_DIR)" \
 		--ts_proto_opt=esModuleInterop=true \
 		--ts_proto_opt=forceLong=string \
