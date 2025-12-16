@@ -158,12 +158,7 @@ export class FeegrantModule extends BaseModule<FeegrantQueryClient> {
       }),
     };
 
-    return this.signingClient.signAndBroadcast(
-      granter,
-      [revokeMsg],
-      fee,
-      memo,
-    );
+    return this.signingClient.signAndBroadcast(granter, [revokeMsg], fee, memo);
   }
 
   /**
@@ -185,11 +180,6 @@ export class FeegrantModule extends BaseModule<FeegrantQueryClient> {
       }),
     }));
 
-    return this.signingClient.signAndBroadcast(
-      granter,
-      revokeMsgs,
-      fee,
-      memo,
-    );
+    return this.signingClient.signAndBroadcast(granter, revokeMsgs, fee, memo);
   }
 }
