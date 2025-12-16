@@ -24,6 +24,7 @@ export type { NetworkConfig, NetworkName } from "./networks";
 // Modules
 export { EmissionsModule } from "./modules/emissions";
 export { BankModule } from "./modules/bank";
+export { FeegrantModule } from "./modules/feegrant";
 export { AuthModule } from "./modules/auth";
 export { BlockModule } from "./modules/block";
 

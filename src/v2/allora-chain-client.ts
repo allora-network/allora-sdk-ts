@@ -12,6 +12,7 @@ import {
 import { Tendermint34Client } from "@cosmjs/tendermint-rpc";
 import { BankModule } from "./modules/bank";
 import { EmissionsModule } from "./modules/emissions";
+import { FeegrantModule } from "./modules/feegrant";
 import { registryTypes } from "./types/registryTypes";
 import { Decimal } from "@cosmjs/math";
 import { BlockModule } from "./modules/block";
@@ -34,6 +35,7 @@ export class AlloraChainClient {
   // Modules
   public bank: BankModule;
   public emissions: EmissionsModule;
+  public feegrant: FeegrantModule;
   public block: BlockModule;
   public auth: AuthModule;
 
@@ -107,6 +109,7 @@ export class AlloraChainClient {
     // Initialize modules
     this.bank = new BankModule(this.queryClient, this.signingClient);
     this.emissions = new EmissionsModule(this.queryClient, this.signingClient);
+    this.feegrant = new FeegrantModule(this.queryClient, this.signingClient);
     this.block = new BlockModule(this.queryClient, this.signingClient);
     this.auth = new AuthModule(this.queryClient, this.signingClient);
   }
@@ -124,6 +127,7 @@ export class AlloraChainClient {
 
     this.bank = new BankModule(this.queryClient, this.signingClient);
     this.emissions = new EmissionsModule(this.queryClient, this.signingClient);
+    this.feegrant = new FeegrantModule(this.queryClient, this.signingClient);
     this.block = new BlockModule(this.queryClient, this.signingClient);
     this.auth = new AuthModule(this.queryClient, this.signingClient);
 
