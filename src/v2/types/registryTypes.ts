@@ -1,6 +1,15 @@
 import { GeneratedType } from "@cosmjs/proto-signing";
 import { MsgSend } from "./generated/cosmos/bank/v1beta1/tx";
 import {
+  MsgGrantAllowance,
+  MsgRevokeAllowance,
+} from "./generated/cosmos/feegrant/v1beta1/tx";
+import {
+  BasicAllowance,
+  PeriodicAllowance,
+  AllowedMsgAllowance,
+} from "./generated/cosmos/feegrant/v1beta1/feegrant";
+import {
   CreateNewTopicRequest,
   FundTopicRequest,
   RegisterRequest,
@@ -47,6 +56,28 @@ import {
 export const registryTypes: [string, GeneratedType][] = [
   // Cosmos bank
   ["/cosmos.bank.v1beta1.MsgSend", MsgSend as unknown as GeneratedType],
+
+  // Cosmos feegrant
+  [
+    "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+    MsgGrantAllowance as unknown as GeneratedType,
+  ],
+  [
+    "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
+    MsgRevokeAllowance as unknown as GeneratedType,
+  ],
+  [
+    "/cosmos.feegrant.v1beta1.BasicAllowance",
+    BasicAllowance as unknown as GeneratedType,
+  ],
+  [
+    "/cosmos.feegrant.v1beta1.PeriodicAllowance",
+    PeriodicAllowance as unknown as GeneratedType,
+  ],
+  [
+    "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+    AllowedMsgAllowance as unknown as GeneratedType,
+  ],
 
   // Topic management
   [
