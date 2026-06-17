@@ -29,3 +29,25 @@ const btc8h = await alloraClient.getPriceInference(
   PriceInferenceTimeframe.EIGHT_HOURS
 );
 ```
+
+### Privy-Managed Signing (delegated)
+
+Delegate transaction signing to the Forge backend (a Privy-managed server wallet) instead
+of holding a private key. `ForgeRemoteSigner` is a cosmjs `OfflineDirectSigner`, so it
+plugs straight into `SigningStargateClient`.
+
+```typescript
+import { ForgeRemoteSigner } from '@alloralabs/allora-sdk/signing'
+import { SigningStargateClient } from '@cosmjs/stargate'
+
+// walletId + apiKey are minted in the Forge web app.
+const signer = await ForgeRemoteSigner.create({
+  backendUrl: 'https://forge.allora.network',
+  apiKey: process.env.FORGE_API_KEY!,
+  walletId: process.env.FORGE_SIGNING_WALLET_ID!,
+})
+
+const client = await SigningStargateClient.connectWithSigner(rpcUrl, signer)
+// Set fee.granter to the master wallet to subsidize gas via feegrant.
+await client.signAndBroadcast(signer.address, msgs, fee)
+```
