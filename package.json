@@ -18,7 +18,8 @@
     "lint": "npx eslint **/*.ts --config eslint.config.cjs --no-warn-ignored",
     "test": "npx jest",
     "test:unit": "npx jest --testMatch='**/*.unit.test.ts'",
-    "test:integration": "npx jest --testMatch='**/*.integration.test.ts'"
+    "test:integration": "npx jest --testMatch='**/*.integration.test.ts'",
+    "test:signing": "npx tsc && node test/signing.verify.cjs"
   },
   "main": "dist/src/v2/index.js",
   "types": "dist/src/v2/index.d.ts",
@@ -30,13 +31,23 @@
       "import": "./dist/src/v2/index.js",
       "require": "./dist/src/v2/index.js",
       "types": "./dist/src/v2/index.d.ts"
+    },
+    "./signing": {
+      "import": "./dist/src/v2/signing.js",
+      "require": "./dist/src/v2/signing.js",
+      "types": "./dist/src/v2/signing.d.ts"
     }
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "@cosmjs/amino": "^0.39.0",
+    "@cosmjs/crypto": "^0.39.0",
+    "@cosmjs/encoding": "^0.39.0",
+    "@cosmjs/proto-signing": "^0.39.0",
     "@types/node": "^22.10.5",
+    "cosmjs-types": "^0.11.0",
     "typescript": "^5.7.2"
   },
   "devDependencies": {
