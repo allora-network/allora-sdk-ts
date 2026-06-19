@@ -121,7 +121,10 @@ export class ForgeSigningWalletClient {
     path: string,
     body?: string,
   ): Promise<string> {
-    const headers: Record<string, string> = { [API_KEY_HEADER]: this.apiKey };
+    const headers: Record<string, string> = {
+      [API_KEY_HEADER]: this.apiKey,
+      Accept: "application/json",
+    };
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
     }
