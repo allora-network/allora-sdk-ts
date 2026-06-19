@@ -12,8 +12,6 @@ import {
 import { fromBech32, fromHex, toBech32, toHex } from "@cosmjs/encoding";
 import type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 
-export type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
-
 const API_KEY_HEADER = "X-Forge-API-Key";
 const DEFAULT_PREFIX = "allo";
 /** Total per-request timeout, matching the Go and Python SDK siblings (30s). */
