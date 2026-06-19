@@ -51,3 +51,9 @@ const client = await SigningStargateClient.connectWithSigner(rpcUrl, signer)
 // Set fee.granter to the master wallet to subsidize gas via feegrant.
 await client.signAndBroadcast(signer.address, msgs, fee)
 ```
+
+> **Node version:** the `./signing` subpath pulls in cosmjs, whose `@noble/*` v2
+> dependencies are ESM-only. CommonJS (`require()`) consumers therefore need Node
+> **≥20.19** (or **≥22.12**), where `require(ESM)` is supported; ESM `import` works
+> on Node ≥18. The data-only main entrypoint (`@alloralabs/allora-sdk/v2`) has no
+> such requirement.
