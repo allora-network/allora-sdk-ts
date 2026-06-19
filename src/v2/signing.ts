@@ -59,12 +59,20 @@ export interface ForgeRemoteSignerConfig {
  * error page, a plain-text 401) surfaces an actionable error instead of an opaque
  * SyntaxError with no indication it came from the Forge SDK. */
 function parseForgeJson<T>(body: string, what: string): T {
+  let parsed: unknown;
   try {
-    return JSON.parse(body) as T;
+    parsed = JSON.parse(body);
   } catch {
     const preview = body.length > 256 ? `${body.slice(0, 256)}…` : body;
     throw new Error(`Forge ${what} response was not valid JSON: ${preview}`);
   }
+  // Reject non-object JSON (arrays, null, numbers, strings) so the actual root
+  // cause surfaces here instead of a misleading "missing field" error downstream.
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    const kind = Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed;
+    throw new Error(`Forge ${what} response was not a JSON object (got ${kind})`);
+  }
+  return parsed as T;
 }
 
 /**
