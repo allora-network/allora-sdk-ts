@@ -82,7 +82,7 @@ function parseForgeJson<T>(body: string, what: string): T {
  * `ForgeRemoteSigner.create()`, which performs the pubkey-derived address
  * cross-check; calling `sign()` on this client directly bypasses that safety net.
  */
-export class ForgeSigningWalletClient {
+class ForgeSigningWalletClient {
   private readonly baseUrl: string;
   private readonly fetchFn: FetchLike;
 
