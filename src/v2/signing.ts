@@ -227,6 +227,9 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
   static async create(
     config: ForgeRemoteSignerConfig,
   ): Promise<ForgeRemoteSigner> {
+    if (!config.backendUrl || !config.apiKey || !config.walletId) {
+      throw new Error("backendUrl, apiKey, and walletId are all required");
+    }
     const prefix = config.prefix ?? DEFAULT_PREFIX;
     const client = new ForgeSigningWalletClient(
       config.backendUrl,
