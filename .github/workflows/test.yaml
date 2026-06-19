@@ -45,7 +45,10 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        # Pin to the exact engines.node floor (>=20.19.0, where require(ESM)
+        # works for the ESM-only @noble/* deps) so the declared contract is
+        # actually exercised — 20.x would silently resolve to a newer patch.
+        node-version: [20.19.0, 22.12.0]
 
     steps:
     - uses: actions/checkout@v3
