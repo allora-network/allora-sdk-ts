@@ -122,11 +122,14 @@ export class ForgeSigningWalletClient {
   }
 
   /** Sign a payload with the wallet. When prehashed is false the backend SHA-256
-   * hashes the payload (Cosmos SignDoc); when true it signs the 32-byte digest. */
+   * hashes the payload (Cosmos SignDoc); when true it signs the 32-byte digest.
+   * When expectedPubkeyHex is given, the pubkey echoed by the backend is checked
+   * against it so a rotated or mis-routed wallet is caught before broadcast. */
   async sign(
     walletId: string,
     payload: Uint8Array,
     prehashed: boolean,
+    expectedPubkeyHex?: string,
   ): Promise<Uint8Array> {
     const body = await this.request(
       "POST",
@@ -139,6 +142,16 @@ export class ForgeSigningWalletClient {
     );
     if (!data.signature) {
       throw new Error(`Forge sign response for ${walletId} missing 'signature'`);
+    }
+    if (
+      expectedPubkeyHex &&
+      data.pubkey &&
+      data.pubkey.toLowerCase() !== expectedPubkeyHex.toLowerCase()
+    ) {
+      throw new Error(
+        `Forge sign response pubkey ${data.pubkey} does not match the wallet pubkey ` +
+          `${expectedPubkeyHex}; the backend may have rotated or mis-routed the wallet`,
+      );
     }
     const sig = fromHex(data.signature);
     if (sig.length !== 64) {
@@ -261,7 +274,12 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       );
     }
     const signBytes = makeSignBytes(signDoc);
-    const signature = await this.client.sign(this.walletId, signBytes, false);
+    const signature = await this.client.sign(
+      this.walletId,
+      signBytes,
+      false,
+      toHex(this.pubkey),
+    );
     return {
       signed: signDoc,
       signature: encodeSecp256k1Signature(this.pubkey, signature),
