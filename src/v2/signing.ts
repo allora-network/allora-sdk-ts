@@ -318,4 +318,17 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       signature: encodeSecp256k1Signature(this.pubkey, signature),
     };
   }
+
+  /**
+   * Sign a 32-byte application-level digest directly: the backend signs the digest
+   * as-is (no Cosmos SHA-256 step). Use this for bundle/non-tx signatures; Cosmos
+   * transactions go through signDirect. Mirrors allora-sdk-py's
+   * RemoteSigner.sign_digest. Returns the raw 64-byte (r||s) signature.
+   */
+  async signDigest(digest: Uint8Array): Promise<Uint8Array> {
+    if (digest.length !== 32) {
+      throw new Error(`digest must be 32 bytes, got ${digest.length}`);
+    }
+    return this.client.sign(this.walletId, digest, true, toHex(this.pubkey));
+  }
 }
