@@ -75,8 +75,14 @@ function parseForgeJson<T>(body: string, what: string): T {
   // Reject non-object JSON (arrays, null, numbers, strings) so the actual root
   // cause surfaces here instead of a misleading "missing field" error downstream.
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    const kind = Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed;
-    throw new Error(`Forge ${what} response was not a JSON object (got ${kind})`);
+    const kind = Array.isArray(parsed)
+      ? "array"
+      : parsed === null
+        ? "null"
+        : typeof parsed;
+    throw new Error(
+      `Forge ${what} response was not a JSON object (got ${kind})`,
+    );
   }
   return parsed as T;
 }
