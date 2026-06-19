@@ -282,7 +282,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     return new ForgeRemoteSigner(client, config.walletId, derived, pubkey);
   }
 
-  /** The signer's allo1... account address. */
+  /** The signer's bech32 account address (prefix defaults to "allo"). */
   get address(): string {
     return this.accountAddress;
   }
