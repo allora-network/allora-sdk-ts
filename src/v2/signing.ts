@@ -16,6 +16,8 @@ export type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 
 const API_KEY_HEADER = "X-Forge-API-Key";
 const DEFAULT_PREFIX = "allo";
+/** Total per-request timeout, matching the Go and Python SDK siblings (30s). */
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** Minimal subset of the Fetch API used by the signing client, so a custom
  * implementation can be injected (e.g. in tests or non-browser runtimes). */
@@ -25,6 +27,7 @@ export type FetchLike = (
     method?: string;
     headers?: Record<string, string>;
     body?: string;
+    signal?: AbortSignal;
   },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
@@ -49,6 +52,8 @@ export interface ForgeRemoteSignerConfig {
   fetchFn?: FetchLike;
   /** Allow a non-HTTPS backendUrl (e.g. http:// in tests). Defaults to false. */
   allowInsecureHttp?: boolean;
+  /** Per-request timeout in milliseconds; defaults to 30000 (30s). */
+  timeoutMs?: number;
 }
 
 /** HTTP client for the Forge signing-wallet API. */
@@ -61,6 +66,7 @@ export class ForgeSigningWalletClient {
     private readonly apiKey: string,
     fetchFn?: FetchLike,
     allowInsecureHttp = false,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
     // Reject non-HTTPS backends: the Forge API key authorises on-chain signing,
     // so it must never travel in cleartext. allowInsecureHttp opts out for local
@@ -118,12 +124,30 @@ export class ForgeSigningWalletClient {
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
     }
-    const res = await this.fetchFn(this.baseUrl + path, { method, headers, body });
-    const text = await res.text();
-    if (!res.ok) {
-      throw new Error(`Forge backend returned ${res.status}: ${text}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const res = await this.fetchFn(this.baseUrl + path, {
+        method,
+        headers,
+        body,
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(`Forge backend returned ${res.status}: ${text}`);
+      }
+      return text;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error(
+          `Forge backend request timed out after ${this.timeoutMs}ms`,
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    return text;
   }
 }
 
@@ -155,6 +179,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       config.apiKey,
       config.fetchFn,
       config.allowInsecureHttp,
+      config.timeoutMs,
     );
     const info = await client.getWallet(config.walletId);
     const pubkey = fromHex(info.pubkey);
