@@ -130,6 +130,16 @@ class ForgeSigningWalletClient {
         `Forge wallet-info response for ${walletId} missing 'pubkey'`,
       );
     }
+    // Bind the returned wallet to the requested id: a caching proxy serving a
+    // stale response for a different wallet, or a backend routing bug, would
+    // otherwise pair this walletId with the wrong pubkey/address for the
+    // signer's lifetime. (The pubkey-derived address cross-check in create()
+    // validates pubkey<->address, but not pubkey<->walletId.)
+    if (info.id && info.id !== walletId) {
+      throw new Error(
+        `Forge wallet-info returned id '${info.id}', expected '${walletId}'; the backend may have mis-routed the wallet`,
+      );
+    }
     return info;
   }
 
