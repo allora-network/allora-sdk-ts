@@ -211,7 +211,7 @@ class ForgeSigningWalletClient {
   }
 
   private async request(
-    method: string,
+    method: "GET" | "POST",
     path: string,
     body?: string,
   ): Promise<string> {
