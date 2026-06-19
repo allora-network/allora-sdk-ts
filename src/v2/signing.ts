@@ -218,6 +218,10 @@ export class ForgeSigningWalletClient {
  *   const signer = await ForgeRemoteSigner.create({ backendUrl, apiKey, walletId });
  *   const client = await SigningStargateClient.connectWithSigner(rpcUrl, signer);
  *   await client.signAndBroadcast(signer.address, msgs, { ...fee, granter: masterAddr });
+ *
+ * Only SIGN_MODE_DIRECT is implemented (no amino / SIGN_MODE_LEGACY_AMINO_JSON),
+ * which covers Allora's default signing. A cosmjs client that requires amino sign
+ * mode (some IBC fee/relayer or Ledger paths) is not supported by this signer.
  */
 export class ForgeRemoteSigner implements OfflineDirectSigner {
   private constructor(
