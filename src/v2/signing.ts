@@ -237,11 +237,23 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     );
     const info = await client.getWallet(config.walletId);
     const pubkey = fromHex(info.pubkey);
+    if (pubkey.length !== 33) {
+      throw new Error(
+        `expected a 33-byte compressed secp256k1 pubkey from the backend, got ${pubkey.length} bytes`,
+      );
+    }
 
     // Derive the address from the pubkey and cross-check against the backend's
     // reported address so a misconfigured wallet fails here, not on broadcast.
+    // address is non-optional in the API contract, so a missing/empty value is a
+    // backend regression rather than a reason to skip the check.
     const derived = toBech32(prefix, rawSecp256k1PubkeyToRawAddress(pubkey));
-    if (info.address && info.address !== derived) {
+    if (!info.address) {
+      throw new Error(
+        `backend wallet-info response for ${config.walletId} missing 'address'`,
+      );
+    }
+    if (info.address !== derived) {
       throw new Error(
         `backend address ${info.address} does not match pubkey-derived address ${derived}`,
       );
