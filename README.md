@@ -48,7 +48,15 @@ const signer = await ForgeRemoteSigner.create({
 })
 
 const client = await SigningStargateClient.connectWithSigner(rpcUrl, signer)
-// Set fee.granter to the master wallet to subsidize gas via feegrant.
+
+// To subsidize gas via the Forge master feegrant, set `fee.granter` to the master
+// wallet's allo1… address (obtain it from your Forge admin / backend config). Omit
+// `granter` to pay gas from the signing wallet itself.
+const fee = {
+  amount: [{ denom: 'uallo', amount: '2000' }],
+  gas: '200000',
+  granter: process.env.FORGE_MASTER_GRANTER_ADDRESS, // allo1… master wallet
+}
 await client.signAndBroadcast(signer.address, msgs, fee)
 ```
 
