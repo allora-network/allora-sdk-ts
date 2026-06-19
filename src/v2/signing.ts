@@ -139,7 +139,8 @@ export class ForgeSigningWalletClient {
       });
       const text = await res.text();
       if (!res.ok) {
-        throw new Error(`Forge backend returned ${res.status}: ${text}`);
+        const preview = text.length > 512 ? `${text.slice(0, 512)}…` : text;
+        throw new Error(`Forge backend returned ${res.status}: ${preview}`);
       }
       return text;
     } catch (err) {
