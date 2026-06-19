@@ -9,7 +9,7 @@ import {
   rawSecp256k1PubkeyToRawAddress,
   type Algo,
 } from "@cosmjs/amino";
-import { fromHex, toBech32, toHex } from "@cosmjs/encoding";
+import { fromBech32, fromHex, toBech32, toHex } from "@cosmjs/encoding";
 import type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 
 export type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
@@ -247,13 +247,23 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     // reported address so a misconfigured wallet fails here, not on broadcast.
     // address is non-optional in the API contract, so a missing/empty value is a
     // backend regression rather than a reason to skip the check.
-    const derived = toBech32(prefix, rawSecp256k1PubkeyToRawAddress(pubkey));
+    const rawAddress = rawSecp256k1PubkeyToRawAddress(pubkey);
+    const derived = toBech32(prefix, rawAddress);
     if (!info.address) {
       throw new Error(
         `backend wallet-info response for ${config.walletId} missing 'address'`,
       );
     }
-    if (info.address !== derived) {
+    // Compare the decoded address bytes, not the bech32 strings, so a non-default
+    // prefix still validates against the backend's allo1… address (the guard is
+    // about key identity, not the rendered prefix). A non-bech32 value also fails.
+    let backendRaw: Uint8Array | undefined;
+    try {
+      backendRaw = fromBech32(info.address).data;
+    } catch {
+      backendRaw = undefined;
+    }
+    if (!backendRaw || toHex(backendRaw) !== toHex(rawAddress)) {
       throw new Error(
         `backend address ${info.address} does not match pubkey-derived address ${derived}`,
       );
