@@ -57,6 +57,18 @@ export interface ForgeRemoteSignerConfig {
   timeoutMs?: number;
 }
 
+/** JSON.parse with Forge context, so a non-JSON backend/proxy response (an HTML
+ * error page, a plain-text 401) surfaces an actionable error instead of an opaque
+ * SyntaxError with no indication it came from the Forge SDK. */
+function parseForgeJson<T>(body: string, what: string): T {
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    const preview = body.length > 256 ? `${body.slice(0, 256)}…` : body;
+    throw new Error(`Forge ${what} response was not valid JSON: ${preview}`);
+  }
+}
+
 /** HTTP client for the Forge signing-wallet API. */
 export class ForgeSigningWalletClient {
   private readonly baseUrl: string;
@@ -97,7 +109,16 @@ export class ForgeSigningWalletClient {
       "GET",
       `/api/v1/signing-wallets/${encodeURIComponent(walletId)}`,
     );
-    return JSON.parse(body) as SigningWalletInfo;
+    const info = parseForgeJson<SigningWalletInfo>(
+      body,
+      `wallet-info (${walletId})`,
+    );
+    if (!info.pubkey) {
+      throw new Error(
+        `Forge wallet-info response for ${walletId} missing 'pubkey'`,
+      );
+    }
+    return info;
   }
 
   /** Sign a payload with the wallet. When prehashed is false the backend SHA-256
@@ -112,7 +133,13 @@ export class ForgeSigningWalletClient {
       `/api/v1/signing-wallets/${encodeURIComponent(walletId)}/sign`,
       JSON.stringify({ payload: toHex(payload), prehashed }),
     );
-    const data = JSON.parse(body) as { signature: string; pubkey: string };
+    const data = parseForgeJson<{ signature?: string; pubkey?: string }>(
+      body,
+      `sign (${walletId})`,
+    );
+    if (!data.signature) {
+      throw new Error(`Forge sign response for ${walletId} missing 'signature'`);
+    }
     return fromHex(data.signature);
   }
 
