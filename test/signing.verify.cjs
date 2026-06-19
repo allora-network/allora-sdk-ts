@@ -54,6 +54,7 @@ async function main() {
     apiKey: "forge_sk_test",
     walletId: "w",
     fetchFn,
+    allowInsecureHttp: true,
   });
 
   const accounts = await signer.getAccounts();
@@ -95,6 +96,7 @@ async function main() {
         apiKey: "k",
         walletId: "w",
         fetchFn: badFetch,
+        allowInsecureHttp: true,
       }),
     /does not match pubkey-derived address/,
   );

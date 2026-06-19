@@ -47,6 +47,8 @@ export interface ForgeRemoteSignerConfig {
   prefix?: string;
   /** Optional fetch implementation; defaults to the global fetch. */
   fetchFn?: FetchLike;
+  /** Allow a non-HTTPS backendUrl (e.g. http:// in tests). Defaults to false. */
+  allowInsecureHttp?: boolean;
 }
 
 /** HTTP client for the Forge signing-wallet API. */
@@ -58,7 +60,17 @@ export class ForgeSigningWalletClient {
     baseUrl: string,
     private readonly apiKey: string,
     fetchFn?: FetchLike,
+    allowInsecureHttp = false,
   ) {
+    // Reject non-HTTPS backends: the Forge API key authorises on-chain signing,
+    // so it must never travel in cleartext. allowInsecureHttp opts out for local
+    // testing against http:// backends.
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== "https:" && !allowInsecureHttp) {
+      throw new Error(
+        `backendUrl must use https:// (got "${parsed.protocol}//"); set allowInsecureHttp to override`,
+      );
+    }
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     // Bind the global fetch to its receiver: WHATWG fetch throws "Illegal
     // invocation" in browsers when called as a method on another object.
@@ -142,6 +154,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       config.backendUrl,
       config.apiKey,
       config.fetchFn,
+      config.allowInsecureHttp,
     );
     const info = await client.getWallet(config.walletId);
     const pubkey = fromHex(info.pubkey);
