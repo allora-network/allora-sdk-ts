@@ -17,6 +17,11 @@ const API_KEY_HEADER = "X-Forge-API-Key";
 const DEFAULT_PREFIX = "allo";
 /** Total per-request timeout, matching the Go and Python SDK siblings (30s). */
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** Upper bound on a Forge backend response body (1 MiB), matching allora-sdk-go's
+ * io.LimitReader cap (allora-sdk-py uses 64 KiB). Legitimate wallet-info and sign
+ * responses are well under 1 KiB; anything larger is a broken/hostile endpoint or a
+ * captive-portal page, so reject it instead of buffering it into JSON.parse. */
+const MAX_RESPONSE_BYTES = 1 << 20;
 
 /** Minimal subset of the Fetch API used by the signing client, so a custom
  * implementation can be injected (e.g. in tests or non-browser runtimes). */
@@ -235,6 +240,15 @@ class ForgeSigningWalletClient {
         redirect: "error",
       });
       const text = await res.text();
+      // Bound the body so a misbehaving/hostile backend cannot drive the signer
+      // process toward OOM (this runs inside signAndBroadcast, where a crash also
+      // burns the account-sequence reservation). The AbortController timeout does
+      // not bound memory on its own.
+      if (text.length > MAX_RESPONSE_BYTES) {
+        throw new Error(
+          `Forge backend response exceeded ${MAX_RESPONSE_BYTES} bytes`,
+        );
+      }
       if (!res.ok) {
         const preview = text.length > 512 ? `${text.slice(0, 512)}…` : text;
         throw new Error(`Forge backend returned ${res.status}: ${preview}`);
