@@ -95,7 +95,7 @@ export class ForgeSigningWalletClient {
   async getWallet(walletId: string): Promise<SigningWalletInfo> {
     const body = await this.request(
       "GET",
-      `/api/v1/signing-wallets/${walletId}`,
+      `/api/v1/signing-wallets/${encodeURIComponent(walletId)}`,
     );
     return JSON.parse(body) as SigningWalletInfo;
   }
@@ -109,7 +109,7 @@ export class ForgeSigningWalletClient {
   ): Promise<Uint8Array> {
     const body = await this.request(
       "POST",
-      `/api/v1/signing-wallets/${walletId}/sign`,
+      `/api/v1/signing-wallets/${encodeURIComponent(walletId)}/sign`,
       JSON.stringify({ payload: toHex(payload), prehashed }),
     );
     const data = JSON.parse(body) as { signature: string; pubkey: string };
