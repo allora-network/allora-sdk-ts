@@ -11,11 +11,7 @@
  * failure modes (bad address, missing fields, short signature, pubkey rotation, etc.).
  */
 const assert = require("node:assert/strict");
-const {
-  Secp256k1,
-  Secp256k1Signature,
-  sha256,
-} = require("@cosmjs/crypto");
+const { Secp256k1, Secp256k1Signature, sha256 } = require("@cosmjs/crypto");
 const { fromBase64, fromHex, toBech32, toHex } = require("@cosmjs/encoding");
 const { rawSecp256k1PubkeyToRawAddress } = require("@cosmjs/amino");
 const { makeSignBytes } = require("@cosmjs/proto-signing");
@@ -132,7 +128,10 @@ async function main() {
 
   // An empty backend address must not silently bypass the cross-check.
   await assert.rejects(
-    () => createWith(async () => okJson({ id: "w", address: "", pubkey: toHex(pubkey) })),
+    () =>
+      createWith(async () =>
+        okJson({ id: "w", address: "", pubkey: toHex(pubkey) }),
+      ),
     /missing 'address'/,
   );
 
@@ -159,7 +158,11 @@ async function main() {
     sentApiKey = init && init.headers && init.headers["X-Forge-API-Key"];
     return okJson({ id: "w", address, pubkey: toHex(pubkey) });
   }, "forge_sk_header");
-  assert.equal(sentApiKey, "forge_sk_header", "X-Forge-API-Key header must be sent");
+  assert.equal(
+    sentApiKey,
+    "forge_sk_header",
+    "X-Forge-API-Key header must be sent",
+  );
 
   // A wrong signerAddress is rejected before any backend call.
   await assert.rejects(
@@ -217,7 +220,9 @@ async function main() {
     /must be 32 bytes/,
   );
 
-  console.log("OK: ForgeRemoteSigner positive + negative signing checks passed");
+  console.log(
+    "OK: ForgeRemoteSigner positive + negative signing checks passed",
+  );
 }
 
 main().catch((err) => {

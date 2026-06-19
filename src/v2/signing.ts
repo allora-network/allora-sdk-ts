@@ -145,7 +145,9 @@ export class ForgeSigningWalletClient {
       `sign (${walletId})`,
     );
     if (!data.signature) {
-      throw new Error(`Forge sign response for ${walletId} missing 'signature'`);
+      throw new Error(
+        `Forge sign response for ${walletId} missing 'signature'`,
+      );
     }
     if (
       expectedPubkeyHex &&
