@@ -5,9 +5,10 @@
  *
  * Why a standalone script instead of a jest test: @cosmjs (and its @noble/hashes v2
  * dependency) is published as pure ESM. The repo's jest/ts-jest setup cannot transpile
- * those node_modules, but Node (>=18, with require-ESM interop) runs them fine. This
- * script stands up a fake backend that signs with a local secp256k1 key and asserts the
- * signature ForgeRemoteSigner returns verifies against the wallet's public key.
+ * those node_modules, but Node (>=20.19, where require(ESM) is supported) runs them
+ * fine. This script stands up a fake backend that signs with a local secp256k1 key and
+ * asserts both the happy path (signature verifies against the wallet pubkey) and the
+ * failure modes (bad address, missing fields, short signature, pubkey rotation, etc.).
  */
 const assert = require("node:assert/strict");
 const {
@@ -101,7 +102,122 @@ async function main() {
     /does not match pubkey-derived address/,
   );
 
-  console.log("OK: ForgeRemoteSigner getAccounts + signDirect + address checks passed");
+  // --- Negative paths -------------------------------------------------------
+
+  const okJson = (obj) => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify(obj),
+  });
+  const createWith = (walletFetch, apiKey = "k") =>
+    ForgeRemoteSigner.create({
+      backendUrl: "http://forge.test",
+      apiKey,
+      walletId: "w",
+      fetchFn: walletFetch,
+      allowInsecureHttp: true,
+    });
+
+  // A non-HTTPS backend is rejected unless allowInsecureHttp is set.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "http://forge.test",
+        apiKey: "k",
+        walletId: "w",
+        fetchFn,
+      }),
+    /must use https/,
+  );
+
+  // An empty backend address must not silently bypass the cross-check.
+  await assert.rejects(
+    () => createWith(async () => okJson({ id: "w", address: "", pubkey: toHex(pubkey) })),
+    /missing 'address'/,
+  );
+
+  // An absent pubkey fails with Forge context.
+  await assert.rejects(
+    () => createWith(async () => okJson({ id: "w", address })),
+    /missing 'pubkey'/,
+  );
+
+  // An HTTP 500 surfaces the status and a non-empty body preview.
+  await assert.rejects(
+    () =>
+      createWith(async () => ({
+        ok: false,
+        status: 500,
+        text: async () => "internal error",
+      })),
+    /Forge backend returned 500: internal error/,
+  );
+
+  // The X-Forge-API-Key header is actually sent on requests.
+  let sentApiKey;
+  await createWith(async (_url, init) => {
+    sentApiKey = init && init.headers && init.headers["X-Forge-API-Key"];
+    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+  }, "forge_sk_header");
+  assert.equal(sentApiKey, "forge_sk_header", "X-Forge-API-Key header must be sent");
+
+  // A wrong signerAddress is rejected before any backend call.
+  await assert.rejects(
+    () => signer.signDirect("allo1someoneelse", signDoc),
+    /does not match signer address/,
+  );
+
+  // A non-64-byte backend signature is rejected with a length message.
+  const shortSigSigner = await createWith(async (_url, init) =>
+    init && init.method === "POST"
+      ? okJson({ signature: "ab".repeat(63), pubkey: toHex(pubkey) })
+      : okJson({ id: "w", address, pubkey: toHex(pubkey) }),
+  );
+  await assert.rejects(
+    () => shortSigSigner.signDirect(address, signDoc),
+    /expected 64/,
+  );
+
+  // A /sign response echoing a different pubkey (rotation/mis-routing) is rejected.
+  const otherKeypair = await Secp256k1.makeKeypair(fromHex("bb".repeat(32)));
+  const otherPubkey = Secp256k1.compressPubkey(otherKeypair.pubkey);
+  const rotatedSigner = await createWith(async (_url, init) => {
+    if (init && init.method === "POST") {
+      const body = JSON.parse(init.body);
+      const sig = await Secp256k1.createSignature(
+        sha256(fromHex(body.payload)),
+        privkey,
+      );
+      return okJson({
+        signature: toHex(sig.toFixedLength().slice(0, 64)),
+        pubkey: toHex(otherPubkey),
+      });
+    }
+    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+  });
+  await assert.rejects(
+    () => rotatedSigner.signDirect(address, signDoc),
+    /does not match the wallet pubkey/,
+  );
+
+  // signDigest signs a 32-byte digest as-is (prehashed) and the result verifies.
+  const digest = sha256(Uint8Array.from([9, 9, 9]));
+  const digestSig = await signer.signDigest(digest);
+  assert.equal(digestSig.length, 64, "signDigest returns a 64-byte signature");
+  assert.ok(
+    await Secp256k1.verifySignature(
+      new Secp256k1Signature(digestSig.slice(0, 32), digestSig.slice(32, 64)),
+      digest,
+      keypair.pubkey,
+    ),
+    "signDigest signature must verify against the wallet pubkey",
+  );
+  await assert.rejects(
+    () => signer.signDigest(Uint8Array.from([1, 2, 3])),
+    /must be 32 bytes/,
+  );
+
+  console.log("OK: ForgeRemoteSigner positive + negative signing checks passed");
 }
 
 main().catch((err) => {
