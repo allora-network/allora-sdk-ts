@@ -140,7 +140,13 @@ export class ForgeSigningWalletClient {
     if (!data.signature) {
       throw new Error(`Forge sign response for ${walletId} missing 'signature'`);
     }
-    return fromHex(data.signature);
+    const sig = fromHex(data.signature);
+    if (sig.length !== 64) {
+      throw new Error(
+        `Forge sign response for ${walletId} returned a ${sig.length}-byte signature; expected 64 (r||s)`,
+      );
+    }
+    return sig;
   }
 
   private async request(
