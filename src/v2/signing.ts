@@ -69,7 +69,13 @@ function parseForgeJson<T>(body: string, what: string): T {
   }
 }
 
-/** HTTP client for the Forge signing-wallet API. */
+/**
+ * HTTP client for the Forge signing-wallet API.
+ *
+ * @internal Low-level transport for {@link ForgeRemoteSigner}. Prefer
+ * `ForgeRemoteSigner.create()`, which performs the pubkey-derived address
+ * cross-check; calling `sign()` on this client directly bypasses that safety net.
+ */
 export class ForgeSigningWalletClient {
   private readonly baseUrl: string;
   private readonly fetchFn: FetchLike;
