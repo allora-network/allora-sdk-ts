@@ -39,3 +39,31 @@ jobs:
       run: yarn test:integration
       env:
         ALLORA_API_KEY: ${{ secrets.ALLORA_TEST_API_KEY }}
+
+  signing:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+
+    - name: Install yarn via corepack
+      run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+    - name: Install dependencies with yarn
+      run: yarn install
+
+    # The signing verification is a standalone Node script (test/signing.verify.cjs):
+    # jest/ts-jest cannot transpile cosmjs's ESM-only @noble deps, so it is not picked
+    # up by `yarn test`. Run it explicitly so signing regressions are caught in CI.
+    - name: Run signing verification
+      run: yarn test:signing
