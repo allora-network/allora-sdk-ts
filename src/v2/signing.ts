@@ -282,12 +282,18 @@ class ForgeSigningWalletClient {
  * mode (some IBC fee/relayer or Ledger paths) is not supported by this signer.
  */
 export class ForgeRemoteSigner implements OfflineDirectSigner {
+  /** Lowercased hex of the (lifetime-invariant) compressed pubkey, cached so it is
+   * not recomputed on every signDirect/signDigest call. */
+  private readonly pubkeyHex: string;
+
   private constructor(
     private readonly client: ForgeSigningWalletClient,
     private readonly walletId: string,
     private readonly accountAddress: string,
     private readonly pubkey: Uint8Array,
-  ) {}
+  ) {
+    this.pubkeyHex = toHex(pubkey).toLowerCase();
+  }
 
   /** Create a signer, fetching the wallet's pubkey/address from the backend. */
   static async create(
@@ -377,7 +383,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       this.walletId,
       signBytes,
       false,
-      toHex(this.pubkey),
+      this.pubkeyHex,
     );
     return {
       signed: signDoc,
@@ -395,6 +401,6 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     if (digest.length !== 32) {
       throw new Error(`digest must be 32 bytes, got ${digest.length}`);
     }
-    return this.client.sign(this.walletId, digest, true, toHex(this.pubkey));
+    return this.client.sign(this.walletId, digest, true, this.pubkeyHex);
   }
 }
