@@ -290,7 +290,9 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       {
         address: this.accountAddress,
         algo: "secp256k1" as Algo,
-        pubkey: this.pubkey,
+        // Clone so a caller mutating accounts[0].pubkey cannot corrupt the
+        // signer's internal key.
+        pubkey: new Uint8Array(this.pubkey),
       },
     ];
   }
