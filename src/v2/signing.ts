@@ -60,7 +60,12 @@ export class ForgeSigningWalletClient {
     fetchFn?: FetchLike,
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
-    const resolved = fetchFn ?? (globalThis as { fetch?: FetchLike }).fetch;
+    // Bind the global fetch to its receiver: WHATWG fetch throws "Illegal
+    // invocation" in browsers when called as a method on another object.
+    const globalFetch = (globalThis as { fetch?: FetchLike }).fetch;
+    const resolved =
+      fetchFn ??
+      (globalFetch ? (globalFetch.bind(globalThis) as FetchLike) : undefined);
     if (!resolved) {
       throw new Error("no fetch implementation available; pass fetchFn");
     }
