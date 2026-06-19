@@ -28,6 +28,7 @@ export type FetchLike = (
     headers?: Record<string, string>;
     body?: string;
     signal?: AbortSignal;
+    redirect?: "error" | "follow" | "manual";
   },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
@@ -132,6 +133,9 @@ export class ForgeSigningWalletClient {
         headers,
         body,
         signal: controller.signal,
+        // Never follow redirects: a 3xx from the backend would otherwise replay
+        // the X-Forge-API-Key header to the (possibly cross-origin) target.
+        redirect: "error",
       });
       const text = await res.text();
       if (!res.ok) {
