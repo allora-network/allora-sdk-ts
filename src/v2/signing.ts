@@ -299,6 +299,12 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     ];
   }
 
+  /**
+   * Sign a Cosmos SignDoc by delegating to the backend. Per cosmjs convention the
+   * returned `signed` is the same object reference passed in as signDoc; do not
+   * mutate it after this resolves, or the returned signature will no longer attest
+   * to it (the chain would reject the tx with "signature verification failed").
+   */
   async signDirect(
     signerAddress: string,
     signDoc: SignDoc,
