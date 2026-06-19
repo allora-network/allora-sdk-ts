@@ -203,6 +203,27 @@ async function main() {
     /does not match the wallet pubkey/,
   );
 
+  // A /sign response that echoes the CORRECT pubkey but returns a (valid 64-byte)
+  // signature over a different payload passes the echo + length checks but must be
+  // rejected by the local cryptographic verification against the cached pubkey.
+  const corruptSigner = await createWith(async (_url, init) => {
+    if (init && init.method === "POST") {
+      const wrongSig = await Secp256k1.createSignature(
+        sha256(Uint8Array.from([0xde, 0xad, 0xbe, 0xef])),
+        privkey,
+      );
+      return okJson({
+        signature: toHex(wrongSig.toFixedLength().slice(0, 64)),
+        pubkey: toHex(pubkey),
+      });
+    }
+    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+  });
+  await assert.rejects(
+    () => corruptSigner.signDirect(address, signDoc),
+    /failed local verification/,
+  );
+
   // signDigest signs a 32-byte digest as-is (prehashed) and the result verifies.
   const digest = sha256(Uint8Array.from([9, 9, 9]));
   const digestSig = await signer.signDigest(digest);

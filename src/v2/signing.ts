@@ -10,6 +10,7 @@ import {
   type Algo,
 } from "@cosmjs/amino";
 import { fromBech32, fromHex, toBech32, toHex } from "@cosmjs/encoding";
+import { Secp256k1, Secp256k1Signature, sha256 } from "@cosmjs/crypto";
 import type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 
 const API_KEY_HEADER = "X-Forge-API-Key";
@@ -146,7 +147,9 @@ class ForgeSigningWalletClient {
   /** Sign a payload with the wallet. When prehashed is false the backend SHA-256
    * hashes the payload (Cosmos SignDoc); when true it signs the 32-byte digest.
    * When expectedPubkeyHex is given, the pubkey echoed by the backend is checked
-   * against it so a rotated or mis-routed wallet is caught before broadcast. */
+   * against it so a rotated or mis-routed wallet is caught before broadcast, and
+   * the returned signature is cryptographically verified against that pubkey so a
+   * wrong-key/non-canonical/corrupted signature is rejected client-side. */
   async sign(
     walletId: string,
     payload: Uint8Array,
@@ -182,6 +185,27 @@ class ForgeSigningWalletClient {
       throw new Error(
         `Forge sign response for ${walletId} returned a ${sig.length}-byte signature; expected 64 (r||s)`,
       );
+    }
+    // Treat the backend as untrusted: cryptographically verify the returned
+    // signature against the cached wallet pubkey before handing it back, so a
+    // wrong-key, non-canonical (high-S), MITM, or byte-corruption regression is
+    // caught here with an actionable error instead of as an opaque on-chain
+    // "signature verification failed" rejection. The pubkey-echo check above is
+    // not a substitute: a backend echoing the correct pubkey alongside a bad
+    // signature passes it. Parity with allora-sdk-go (pubKey.VerifySignature)
+    // and allora-sdk-py (RemoteSigner._verify).
+    if (expectedPubkeyHex) {
+      const digest = prehashed ? payload : sha256(payload);
+      const parsedSig = new Secp256k1Signature(
+        sig.slice(0, 32),
+        sig.slice(32, 64),
+      );
+      const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
+      if (!Secp256k1.verifySignature(parsedSig, digest, pubkey)) {
+        throw new Error(
+          `Forge backend signature for ${walletId} failed local verification (non-canonical/high-S or wrong key)`,
+        );
+      }
     }
     return sig;
   }

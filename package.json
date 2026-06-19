@@ -47,12 +47,14 @@
   },
   "peerDependencies": {
     "@cosmjs/amino": ">=0.32 <1.0.0",
+    "@cosmjs/crypto": ">=0.32 <1.0.0",
     "@cosmjs/encoding": ">=0.32 <1.0.0",
     "@cosmjs/proto-signing": ">=0.32 <1.0.0",
     "cosmjs-types": ">=0.9 <1.0.0"
   },
   "peerDependenciesMeta": {
     "@cosmjs/amino": { "optional": true },
+    "@cosmjs/crypto": { "optional": true },
     "@cosmjs/encoding": { "optional": true },
     "@cosmjs/proto-signing": { "optional": true },
     "cosmjs-types": { "optional": true }
