@@ -126,6 +126,16 @@ async function main() {
     /must use https/,
   );
 
+  // An empty wallet-info id must fail closed: it cannot bind the response to the
+  // requested wallet, so a mis-routed/cache-poisoned response is not accepted.
+  await assert.rejects(
+    () =>
+      createWith(async () =>
+        okJson({ id: "", address, pubkey: toHex(pubkey) }),
+      ),
+    /missing 'id'/,
+  );
+
   // An empty backend address must not silently bypass the cross-check.
   await assert.rejects(
     () =>

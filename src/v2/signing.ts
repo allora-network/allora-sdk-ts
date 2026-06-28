@@ -147,7 +147,12 @@ class ForgeSigningWalletClient {
     // otherwise pair this walletId with the wrong pubkey/address for the
     // signer's lifetime. (The pubkey-derived address cross-check in create()
     // validates pubkey<->address, but not pubkey<->walletId.)
-    if (info.id && info.id !== walletId) {
+    if (!info.id) {
+      throw new Error(
+        `Forge wallet-info response for ${walletId} missing 'id'; cannot verify the backend bound the response to the requested wallet`,
+      );
+    }
+    if (info.id !== walletId) {
       throw new Error(
         `Forge wallet-info returned id '${info.id}', expected '${walletId}'; the backend may have mis-routed the wallet`,
       );
