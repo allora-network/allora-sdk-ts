@@ -381,8 +381,14 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     if (!config.backendUrl || !config.apiKey) {
       throw new Error("backendUrl and apiKey are required");
     }
-    if (!Number.isInteger(topicId) || topicId <= 0) {
-      throw new Error("topicId must be a positive integer");
+    // Number.isSafeInteger (not isInteger): chain topic IDs are uint64, and a value
+    // above 2^53-1 loses precision in JS's double representation before it reaches
+    // JSON.stringify, which would silently bind the worker to the wrong topic. It also
+    // rejects -0 (Number.isInteger(-0) is true), which `topicId < 1` then double-guards.
+    if (!Number.isSafeInteger(topicId) || topicId < 1) {
+      throw new Error(
+        "topicId must be a positive safe integer (1 ≤ topicId ≤ 2^53-1)",
+      );
     }
     const prefix = config.prefix ?? DEFAULT_PREFIX;
     const client = new ForgeSigningWalletClient(

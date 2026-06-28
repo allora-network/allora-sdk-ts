@@ -270,6 +270,23 @@ async function main() {
     /must be 32 bytes/,
   );
 
+  // provisionForTopic must reject a topicId above the JS safe-integer ceiling: a uint64
+  // topic ID beyond 2^53-1 loses precision before JSON.stringify and would bind the
+  // worker to the wrong topic. Rejected locally, before any backend call.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.provisionForTopic(
+        {
+          backendUrl: "http://forge.test",
+          apiKey: "k",
+          fetchFn,
+          allowInsecureHttp: true,
+        },
+        Number.MAX_SAFE_INTEGER + 1,
+      ),
+    /safe integer/,
+  );
+
   console.log(
     "OK: ForgeRemoteSigner positive + negative signing checks passed",
   );
