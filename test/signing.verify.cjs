@@ -1,7 +1,7 @@
 /**
  * Verification for ForgeRemoteSigner.
  *
- * Run with `npm run test:signing` (builds first, then `node test/signing.verify.cjs`).
+ * Run with `yarn test:signing` (builds first, then `node test/signing.verify.cjs`).
  *
  * Why a standalone script instead of a jest test: @cosmjs (and its @noble/hashes v2
  * dependency) is published as pure ESM. The repo's jest/ts-jest setup cannot transpile

@@ -421,7 +421,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     const derived = toBech32(prefix, rawAddress);
     if (!info.address) {
       throw new Error(
-        `backend wallet-info response for ${walletId} missing 'address'`,
+        `backend wallet response for ${walletId} missing 'address'`,
       );
     }
     let backendRaw: Uint8Array | undefined;
