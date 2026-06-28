@@ -45,9 +45,11 @@ jobs:
 
     strategy:
       matrix:
-        # Pin to the exact engines.node floor (>=20.19.0, where require(ESM)
-        # works for the ESM-only @noble/* deps) so the declared contract is
-        # actually exercised — 20.x would silently resolve to a newer patch.
+        # Pin to the exact require(ESM) floor for the signing subpath (>=20.19.0,
+        # where require(ESM) works for the ESM-only @noble/* deps) so the documented
+        # contract is actually exercised — 20.x would silently resolve to a newer patch.
+        # (Package-wide engines.node is >=18, the floor for the data-only entrypoint
+        # and for ESM `import` of ./signing.)
         node-version: [20.19.0, 22.12.0]
 
     steps:
