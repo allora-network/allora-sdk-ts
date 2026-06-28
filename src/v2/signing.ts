@@ -23,6 +23,16 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * captive-portal page, so reject it instead of buffering it into JSON.parse. */
 const MAX_RESPONSE_BYTES = 1 << 20;
 
+/** Minimal structural view of a WHATWG ReadableStream response body — just enough to
+ * read it with a hard size cap. Typed structurally (not via the DOM lib) so the SDK
+ * stays portable across browser/Node/test runtimes. */
+interface ReadableBodyLike {
+  getReader(): {
+    read(): Promise<{ done: boolean; value?: Uint8Array }>;
+    cancel(reason?: unknown): Promise<void>;
+  };
+}
+
 /** Minimal subset of the Fetch API used by the signing client, so a custom
  * implementation can be injected (e.g. in tests or non-browser runtimes). */
 export type FetchLike = (
@@ -34,7 +44,15 @@ export type FetchLike = (
     signal?: AbortSignal;
     redirect?: "error" | "follow" | "manual";
   },
-) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
+) => Promise<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+  /** Streaming body, when the implementation exposes one (the global fetch Response
+   * does). When present it is read with a hard byte cap so an oversized body is never
+   * buffered whole; when absent the client falls back to text(). */
+  body?: ReadableBodyLike | null;
+}>;
 
 /** Non-secret view of a Forge signing wallet. */
 export interface SigningWalletInfo {
@@ -85,6 +103,62 @@ function parseForgeJson<T>(body: string, what: string): T {
     );
   }
   return parsed as T;
+}
+
+/** Concatenate body chunks into a single Uint8Array of known total length. */
+function concatChunks(chunks: Uint8Array[], total: number): Uint8Array {
+  if (chunks.length === 1) {
+    return chunks[0];
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+}
+
+/** Read a fetch response body into a string with a hard byte cap, so a hostile or
+ * captive-portal backend cannot drive the signer toward OOM by streaming an unbounded
+ * body before the size guard runs (parity with allora-sdk-go's io.LimitReader and
+ * allora-sdk-py's capped raw.read). When the response exposes a streaming body, read it
+ * chunk by chunk and stop — cancelling the stream — as soon as the cap is exceeded, so
+ * the oversized body is never buffered whole. When it does not (an injected test stub,
+ * or a runtime without a stream body), fall back to text() and re-check after the fact. */
+async function readBoundedBody(
+  res: { text(): Promise<string>; body?: ReadableBodyLike | null },
+  limit: number,
+): Promise<string> {
+  const stream = res.body;
+  if (!stream || typeof stream.getReader !== "function") {
+    const text = await res.text();
+    if (text.length > limit) {
+      throw new Error(`Forge backend response exceeded ${limit} bytes`);
+    }
+    return text;
+  }
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    total += value.length;
+    if (total > limit) {
+      // Stop reading and let the underlying connection be reclaimed instead of
+      // streaming a hostile oversized body to completion.
+      await reader.cancel();
+      throw new Error(`Forge backend response exceeded ${limit} bytes`);
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(concatChunks(chunks, total));
 }
 
 /**
@@ -293,16 +367,12 @@ class ForgeSigningWalletClient {
         // the X-Forge-API-Key header to the (possibly cross-origin) target.
         redirect: "error",
       });
-      const text = await res.text();
       // Bound the body so a misbehaving/hostile backend cannot drive the signer
       // process toward OOM (this runs inside signAndBroadcast, where a crash also
-      // burns the account-sequence reservation). The AbortController timeout does
-      // not bound memory on its own.
-      if (text.length > MAX_RESPONSE_BYTES) {
-        throw new Error(
-          `Forge backend response exceeded ${MAX_RESPONSE_BYTES} bytes`,
-        );
-      }
+      // burns the account-sequence reservation). Reading the stream stops before an
+      // oversized body is buffered whole; the AbortController timeout does not bound
+      // memory on its own.
+      const text = await readBoundedBody(res, MAX_RESPONSE_BYTES);
       if (!res.ok) {
         const preview = text.length > 512 ? `${text.slice(0, 512)}…` : text;
         throw new Error(`Forge backend returned ${res.status}: ${preview}`);

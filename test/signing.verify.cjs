@@ -162,6 +162,39 @@ async function main() {
     /Forge backend returned 500: internal error/,
   );
 
+  // An oversized streaming body is rejected by the size cap *while* it is being read,
+  // not buffered whole first: the reader yields 0.5 MiB chunks past the 1 MiB cap and
+  // must be cancelled with an "exceeded" error before the whole 2 MiB is collected.
+  const oversizedBody = () => {
+    const chunk = new Uint8Array(512 * 1024); // 0.5 MiB
+    let sent = 0;
+    let cancelled = false;
+    return {
+      getReader() {
+        return {
+          read: async () => {
+            if (cancelled || sent >= 4) return { done: true }; // 4 * 0.5 = 2 MiB
+            sent++;
+            return { done: false, value: chunk };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        };
+      },
+    };
+  };
+  await assert.rejects(
+    () =>
+      createWith(async () => ({
+        ok: true,
+        status: 200,
+        body: oversizedBody(),
+        text: async () => "{}",
+      })),
+    /response exceeded \d+ bytes/,
+  );
+
   // The X-Forge-API-Key header is actually sent on requests.
   let sentApiKey;
   await createWith(async (_url, init) => {
