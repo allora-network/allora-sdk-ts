@@ -221,6 +221,34 @@ class ForgeSigningWalletClient {
     return sig;
   }
 
+  /** Idempotently get-or-create the user's signing wallet bound to topicId (POST
+   * /api/v1/signing-wallets with a topic_id; provisioning rides on the create endpoint
+   * because a static /provision sub-route collides with /:id in the backend router).
+   * Safe to call on every worker start: the backend enforces one wallet per (user, topic). */
+  async provision(
+    topicId: number,
+    label?: string,
+  ): Promise<SigningWalletInfo> {
+    const payload = label
+      ? { topic_id: topicId, label }
+      : { topic_id: topicId };
+    const body = await this.request(
+      "POST",
+      "/api/v1/signing-wallets",
+      JSON.stringify(payload),
+    );
+    const info = parseForgeJson<SigningWalletInfo>(
+      body,
+      `provision (topic ${topicId})`,
+    );
+    if (!info.id || !info.pubkey) {
+      throw new Error(
+        `Forge provision response for topic ${topicId} missing 'id'/'pubkey'`,
+      );
+    }
+    return info;
+  }
+
   private async request(
     method: "GET" | "POST",
     path: string,
@@ -317,27 +345,59 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       config.timeoutMs,
     );
     const info = await client.getWallet(config.walletId);
+    return ForgeRemoteSigner.fromInfo(client, config.walletId, info, prefix);
+  }
+
+  /**
+   * Idempotently get-or-create the user's managed wallet bound to topicId (ENGN-8572
+   * "one worker = one topic") and build a signer for it. Safe to call on every worker
+   * start: the backend enforces one wallet per (user, topic). No walletId is needed.
+   */
+  static async provisionForTopic(
+    config: Omit<ForgeRemoteSignerConfig, "walletId">,
+    topicId: number,
+    label?: string,
+  ): Promise<ForgeRemoteSigner> {
+    if (!config.backendUrl || !config.apiKey) {
+      throw new Error("backendUrl and apiKey are required");
+    }
+    if (!Number.isInteger(topicId) || topicId <= 0) {
+      throw new Error("topicId must be a positive integer");
+    }
+    const prefix = config.prefix ?? DEFAULT_PREFIX;
+    const client = new ForgeSigningWalletClient(
+      config.backendUrl,
+      config.apiKey,
+      config.fetchFn,
+      config.allowInsecureHttp,
+      config.timeoutMs,
+    );
+    const info = await client.provision(topicId, label);
+    return ForgeRemoteSigner.fromInfo(client, info.id, info, prefix);
+  }
+
+  /** Build a signer from wallet info: derive the address from the pubkey and cross-check
+   * it against the backend's reported address so a misconfigured wallet fails here, not on
+   * broadcast. The byte comparison (not bech32 strings) keeps a non-default prefix valid. */
+  private static fromInfo(
+    client: ForgeSigningWalletClient,
+    walletId: string,
+    info: SigningWalletInfo,
+    prefix: string,
+  ): ForgeRemoteSigner {
     const pubkey = fromHex(info.pubkey);
     if (pubkey.length !== 33) {
       throw new Error(
         `expected a 33-byte compressed secp256k1 pubkey from the backend, got ${pubkey.length} bytes`,
       );
     }
-
-    // Derive the address from the pubkey and cross-check against the backend's
-    // reported address so a misconfigured wallet fails here, not on broadcast.
-    // address is non-optional in the API contract, so a missing/empty value is a
-    // backend regression rather than a reason to skip the check.
     const rawAddress = rawSecp256k1PubkeyToRawAddress(pubkey);
     const derived = toBech32(prefix, rawAddress);
     if (!info.address) {
       throw new Error(
-        `backend wallet-info response for ${config.walletId} missing 'address'`,
+        `backend wallet-info response for ${walletId} missing 'address'`,
       );
     }
-    // Compare the decoded address bytes, not the bech32 strings, so a non-default
-    // prefix still validates against the backend's allo1… address (the guard is
-    // about key identity, not the rendered prefix). A non-bech32 value also fails.
     let backendRaw: Uint8Array | undefined;
     try {
       backendRaw = fromBech32(info.address).data;
@@ -349,7 +409,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
         `backend address ${info.address} does not match pubkey-derived address ${derived}`,
       );
     }
-    return new ForgeRemoteSigner(client, config.walletId, derived, pubkey);
+    return new ForgeRemoteSigner(client, walletId, derived, pubkey);
   }
 
   /** The signer's bech32 account address (prefix defaults to "allo"). */
