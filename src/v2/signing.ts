@@ -162,15 +162,17 @@ class ForgeSigningWalletClient {
 
   /** Sign a payload with the wallet. When prehashed is false the backend SHA-256
    * hashes the payload (Cosmos SignDoc); when true it signs the 32-byte digest.
-   * When expectedPubkeyHex is given, the pubkey echoed by the backend is checked
-   * against it so a rotated or mis-routed wallet is caught before broadcast, and
+   * expectedPubkeyHex is required (not optional): the pubkey echoed by the backend is
+   * checked against it so a rotated or mis-routed wallet is caught before broadcast, and
    * the returned signature is cryptographically verified against that pubkey so a
-   * wrong-key/non-canonical/corrupted signature is rejected client-side. */
+   * wrong-key/non-canonical/corrupted signature is rejected client-side. Making it a
+   * required parameter means a future caller cannot silently disable verification by
+   * forgetting to pass it — the omission is a compile error, not a quiet security hole. */
   async sign(
     walletId: string,
     payload: Uint8Array,
     prehashed: boolean,
-    expectedPubkeyHex?: string,
+    expectedPubkeyHex: string,
   ): Promise<Uint8Array> {
     const body = await this.request(
       "POST",
