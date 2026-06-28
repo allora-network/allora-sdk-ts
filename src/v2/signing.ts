@@ -10,12 +10,18 @@ import {
   type Algo,
 } from "@cosmjs/amino";
 import { fromBech32, fromHex, toBech32, toHex } from "@cosmjs/encoding";
+import { Secp256k1, Secp256k1Signature, sha256 } from "@cosmjs/crypto";
 import type { SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 
 const API_KEY_HEADER = "X-Forge-API-Key";
 const DEFAULT_PREFIX = "allo";
 /** Total per-request timeout, matching the Go and Python SDK siblings (30s). */
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** Upper bound on a Forge backend response body (1 MiB), matching allora-sdk-go's
+ * io.LimitReader cap (allora-sdk-py uses 64 KiB). Legitimate wallet-info and sign
+ * responses are well under 1 KiB; anything larger is a broken/hostile endpoint or a
+ * captive-portal page, so reject it instead of buffering it into JSON.parse. */
+const MAX_RESPONSE_BYTES = 1 << 20;
 
 /** Minimal subset of the Fetch API used by the signing client, so a custom
  * implementation can be injected (e.g. in tests or non-browser runtimes). */
@@ -59,12 +65,26 @@ export interface ForgeRemoteSignerConfig {
  * error page, a plain-text 401) surfaces an actionable error instead of an opaque
  * SyntaxError with no indication it came from the Forge SDK. */
 function parseForgeJson<T>(body: string, what: string): T {
+  let parsed: unknown;
   try {
-    return JSON.parse(body) as T;
+    parsed = JSON.parse(body);
   } catch {
     const preview = body.length > 256 ? `${body.slice(0, 256)}…` : body;
     throw new Error(`Forge ${what} response was not valid JSON: ${preview}`);
   }
+  // Reject non-object JSON (arrays, null, numbers, strings) so the actual root
+  // cause surfaces here instead of a misleading "missing field" error downstream.
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    const kind = Array.isArray(parsed)
+      ? "array"
+      : parsed === null
+        ? "null"
+        : typeof parsed;
+    throw new Error(
+      `Forge ${what} response was not a JSON object (got ${kind})`,
+    );
+  }
+  return parsed as T;
 }
 
 /**
@@ -74,7 +94,7 @@ function parseForgeJson<T>(body: string, what: string): T {
  * `ForgeRemoteSigner.create()`, which performs the pubkey-derived address
  * cross-check; calling `sign()` on this client directly bypasses that safety net.
  */
-export class ForgeSigningWalletClient {
+class ForgeSigningWalletClient {
   private readonly baseUrl: string;
   private readonly fetchFn: FetchLike;
 
@@ -122,13 +142,25 @@ export class ForgeSigningWalletClient {
         `Forge wallet-info response for ${walletId} missing 'pubkey'`,
       );
     }
+    // Bind the returned wallet to the requested id: a caching proxy serving a
+    // stale response for a different wallet, or a backend routing bug, would
+    // otherwise pair this walletId with the wrong pubkey/address for the
+    // signer's lifetime. (The pubkey-derived address cross-check in create()
+    // validates pubkey<->address, but not pubkey<->walletId.)
+    if (info.id && info.id !== walletId) {
+      throw new Error(
+        `Forge wallet-info returned id '${info.id}', expected '${walletId}'; the backend may have mis-routed the wallet`,
+      );
+    }
     return info;
   }
 
   /** Sign a payload with the wallet. When prehashed is false the backend SHA-256
    * hashes the payload (Cosmos SignDoc); when true it signs the 32-byte digest.
    * When expectedPubkeyHex is given, the pubkey echoed by the backend is checked
-   * against it so a rotated or mis-routed wallet is caught before broadcast. */
+   * against it so a rotated or mis-routed wallet is caught before broadcast, and
+   * the returned signature is cryptographically verified against that pubkey so a
+   * wrong-key/non-canonical/corrupted signature is rejected client-side. */
   async sign(
     walletId: string,
     payload: Uint8Array,
@@ -165,6 +197,27 @@ export class ForgeSigningWalletClient {
         `Forge sign response for ${walletId} returned a ${sig.length}-byte signature; expected 64 (r||s)`,
       );
     }
+    // Treat the backend as untrusted: cryptographically verify the returned
+    // signature against the cached wallet pubkey before handing it back, so a
+    // wrong-key, non-canonical (high-S), MITM, or byte-corruption regression is
+    // caught here with an actionable error instead of as an opaque on-chain
+    // "signature verification failed" rejection. The pubkey-echo check above is
+    // not a substitute: a backend echoing the correct pubkey alongside a bad
+    // signature passes it. Parity with allora-sdk-go (pubKey.VerifySignature)
+    // and allora-sdk-py (RemoteSigner._verify).
+    if (expectedPubkeyHex) {
+      const digest = prehashed ? payload : sha256(payload);
+      const parsedSig = new Secp256k1Signature(
+        sig.slice(0, 32),
+        sig.slice(32, 64),
+      );
+      const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
+      if (!Secp256k1.verifySignature(parsedSig, digest, pubkey)) {
+        throw new Error(
+          `Forge backend signature for ${walletId} failed local verification (non-canonical/high-S or wrong key)`,
+        );
+      }
+    }
     return sig;
   }
 
@@ -197,7 +250,7 @@ export class ForgeSigningWalletClient {
   }
 
   private async request(
-    method: string,
+    method: "GET" | "POST",
     path: string,
     body?: string,
   ): Promise<string> {
@@ -221,6 +274,15 @@ export class ForgeSigningWalletClient {
         redirect: "error",
       });
       const text = await res.text();
+      // Bound the body so a misbehaving/hostile backend cannot drive the signer
+      // process toward OOM (this runs inside signAndBroadcast, where a crash also
+      // burns the account-sequence reservation). The AbortController timeout does
+      // not bound memory on its own.
+      if (text.length > MAX_RESPONSE_BYTES) {
+        throw new Error(
+          `Forge backend response exceeded ${MAX_RESPONSE_BYTES} bytes`,
+        );
+      }
       if (!res.ok) {
         const preview = text.length > 512 ? `${text.slice(0, 512)}…` : text;
         throw new Error(`Forge backend returned ${res.status}: ${preview}`);
@@ -254,12 +316,18 @@ export class ForgeSigningWalletClient {
  * mode (some IBC fee/relayer or Ledger paths) is not supported by this signer.
  */
 export class ForgeRemoteSigner implements OfflineDirectSigner {
+  /** Lowercased hex of the (lifetime-invariant) compressed pubkey, cached so it is
+   * not recomputed on every signDirect/signDigest call. */
+  private readonly pubkeyHex: string;
+
   private constructor(
     private readonly client: ForgeSigningWalletClient,
     private readonly walletId: string,
     private readonly accountAddress: string,
     private readonly pubkey: Uint8Array,
-  ) {}
+  ) {
+    this.pubkeyHex = toHex(pubkey).toLowerCase();
+  }
 
   /** Create a signer, fetching the wallet's pubkey/address from the backend. */
   static async create(
@@ -381,7 +449,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       this.walletId,
       signBytes,
       false,
-      toHex(this.pubkey),
+      this.pubkeyHex,
     );
     return {
       signed: signDoc,
@@ -399,6 +467,6 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     if (digest.length !== 32) {
       throw new Error(`digest must be 32 bytes, got ${digest.length}`);
     }
-    return this.client.sign(this.walletId, digest, true, toHex(this.pubkey));
+    return this.client.sign(this.walletId, digest, true, this.pubkeyHex);
   }
 }
