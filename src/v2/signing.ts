@@ -212,7 +212,14 @@ class ForgeSigningWalletClient {
         sig.slice(32, 64),
       );
       const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
-      if (!Secp256k1.verifySignature(parsedSig, digest, pubkey)) {
+      // Wrap in Promise.resolve so this works on both sync (@cosmjs/crypto >=0.38)
+      // and async (<=0.37) verifySignature: peerDependencies admits >=0.32, and on
+      // 0.32-0.37 verifySignature returns a Promise, so a bare `if (!verifySignature(...))`
+      // would test a truthy Promise and silently skip the throw (dead verification).
+      const valid = await Promise.resolve(
+        Secp256k1.verifySignature(parsedSig, digest, pubkey),
+      );
+      if (!valid) {
         throw new Error(
           `Forge backend signature for ${walletId} failed local verification (non-canonical/high-S or wrong key)`,
         );
