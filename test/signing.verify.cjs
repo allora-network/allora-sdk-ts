@@ -234,6 +234,25 @@ async function main() {
     /failed local verification/,
   );
 
+  // A /sign response that OMITS the pubkey echo must fail closed even when the
+  // signature itself would verify, so a backend cannot strip the echo to dodge the
+  // rotation/mis-route check.
+  const noEchoSigner = await createWith(async (_url, init) => {
+    if (init && init.method === "POST") {
+      const body = JSON.parse(init.body);
+      const sig = await Secp256k1.createSignature(
+        sha256(fromHex(body.payload)),
+        privkey,
+      );
+      return okJson({ signature: toHex(sig.toFixedLength().slice(0, 64)) });
+    }
+    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+  });
+  await assert.rejects(
+    () => noEchoSigner.signDirect(address, signDoc),
+    /missing 'pubkey' echo/,
+  );
+
   // signDigest signs a 32-byte digest as-is (prehashed) and the result verifies.
   const digest = sha256(Uint8Array.from([9, 9, 9]));
   const digestSig = await signer.signDigest(digest);

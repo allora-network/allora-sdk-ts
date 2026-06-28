@@ -188,15 +188,21 @@ class ForgeSigningWalletClient {
         `Forge sign response for ${walletId} missing 'signature'`,
       );
     }
-    if (
-      expectedPubkeyHex &&
-      data.pubkey &&
-      data.pubkey.toLowerCase() !== expectedPubkeyHex.toLowerCase()
-    ) {
-      throw new Error(
-        `Forge sign response pubkey ${data.pubkey} does not match the wallet pubkey ` +
-          `${expectedPubkeyHex}; the backend may have rotated or mis-routed the wallet`,
-      );
+    if (expectedPubkeyHex) {
+      // Fail closed when the backend omits the pubkey echo: a `data.pubkey &&` truthy
+      // guard would let a response that simply drops the field skip the rotation/
+      // mis-route check entirely.
+      if (!data.pubkey) {
+        throw new Error(
+          `Forge sign response for ${walletId} missing 'pubkey' echo; cannot verify the backend signed with the expected wallet`,
+        );
+      }
+      if (data.pubkey.toLowerCase() !== expectedPubkeyHex.toLowerCase()) {
+        throw new Error(
+          `Forge sign response pubkey ${data.pubkey} does not match the wallet pubkey ` +
+            `${expectedPubkeyHex}; the backend may have rotated or mis-routed the wallet`,
+        );
+      }
     }
     const sig = fromHex(data.signature);
     if (sig.length !== 64) {
