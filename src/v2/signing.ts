@@ -387,6 +387,7 @@ class ForgeSigningWalletClient {
     payload: Uint8Array,
     prehashed: boolean,
     expectedPubkeyHex: string,
+    expectedPubkey: Uint8Array,
   ): Promise<Uint8Array> {
     // expectedPubkeyHex is required and non-empty: the pubkey-echo check and the local
     // cryptographic verify below are load-bearing security gates, not optional. An empty
@@ -443,13 +444,17 @@ class ForgeSigningWalletClient {
       sig.slice(0, 32),
       sig.slice(32, 64),
     );
-    const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
+    // Verify with the signer's cached compressed pubkey bytes directly:
+    // Secp256k1.verifySignature (→ @noble secp256k1.verify) accepts a 33-byte compressed key
+    // and decompresses it internally, so the previous per-call fromHex(expectedPubkeyHex) +
+    // Secp256k1.uncompressPubkey — which also forced a redundant second point lift inside
+    // verify — are unnecessary work on a path that runs on every signature.
     // Wrap in Promise.resolve for forward-compatibility: on @cosmjs/crypto >=0.38 (the
     // current peerDependencies floor) verifySignature is synchronous, so this is a no-op
     // today — but guarding against a future async form prevents a bare
     // `if (!verifySignature(...))` from silently testing a truthy Promise (dead verification).
     const valid = await Promise.resolve(
-      Secp256k1.verifySignature(parsedSig, digest, pubkey),
+      Secp256k1.verifySignature(parsedSig, digest, expectedPubkey),
     );
     if (!valid) {
       throw new Error(
@@ -853,6 +858,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       signBytes,
       false,
       this.pubkeyHex,
+      this.pubkey,
     );
     return {
       signed: signDoc,
@@ -875,7 +881,13 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     if (digest.length !== 32) {
       throw new Error(`digest must be 32 bytes, got ${digest.length}`);
     }
-    return this.client.sign(this.walletId, digest, true, this.pubkeyHex);
+    return this.client.sign(
+      this.walletId,
+      digest,
+      true,
+      this.pubkeyHex,
+      this.pubkey,
+    );
   }
 
   /**
