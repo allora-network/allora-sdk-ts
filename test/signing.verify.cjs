@@ -233,6 +233,23 @@ async function main() {
     /walletId must be a UUID/,
   );
 
+  // timeoutMs must be a positive finite number: 0, a negative value, or NaN are forwarded
+  // to setTimeout and would abort every request on the next tick. Rejected at construction.
+  for (const badTimeout of [0, -1, Number.NaN]) {
+    await assert.rejects(
+      () =>
+        ForgeRemoteSigner.create({
+          backendUrl: "http://localhost",
+          apiKey: "k",
+          walletId: WALLET_ID,
+          fetchFn,
+          allowInsecureHttp: true,
+          timeoutMs: badTimeout,
+        }),
+      /timeoutMs must be a positive finite number/,
+    );
+  }
+
   // An empty wallet-info id must fail closed: it cannot bind the response to the
   // requested wallet, so a mis-routed/cache-poisoned response is not accepted.
   await assert.rejects(

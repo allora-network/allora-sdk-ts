@@ -251,6 +251,15 @@ class ForgeSigningWalletClient {
         );
       }
     }
+    // Reject a non-positive / non-finite timeout: it is forwarded to setTimeout, and 0,
+    // a negative value, or NaN all schedule controller.abort() on the next tick, so every
+    // request would fail with an opaque "timed out after 0ms" before fetch could complete.
+    // The TypeScript parameter default only fills in undefined, not these explicit values.
+    if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0) {
+      throw new Error(
+        `timeoutMs must be a positive finite number of milliseconds (got ${this.timeoutMs})`,
+      );
+    }
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     // Bind the global fetch to its receiver: WHATWG fetch throws "Illegal
     // invocation" in browsers when called as a method on another object.
