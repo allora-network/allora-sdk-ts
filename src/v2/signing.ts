@@ -147,7 +147,12 @@ async function readBoundedBody(
   const stream = res.body;
   if (!stream || typeof stream.getReader !== "function") {
     const text = await res.text();
-    if (text.length > limit) {
+    // Measure UTF-8 bytes, not String.length (UTF-16 code units): for multi-byte content
+    // (CJK, emoji) the byte count can be up to ~3-4x the character count, so a code-unit
+    // check would let a hostile body encode several MiB past the cap. The streaming path
+    // below already counts bytes — keep the two paths consistent.
+    const bytes = new TextEncoder().encode(text);
+    if (bytes.length > limit) {
       throw new Error(`Forge backend response exceeded ${limit} bytes`);
     }
     return text;
