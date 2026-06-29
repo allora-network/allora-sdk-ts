@@ -60,12 +60,13 @@ const fee = {
 await client.signAndBroadcast(signer.address, msgs, fee)
 ```
 
-> **Fee-granter env var name:** `FORGE_MASTER_GRANTER_ADDRESS` above is only an
-> illustrative name for your own configuration — this SDK does not read it. Heads
-> up that the Python SDK (`allora-sdk-py`) names the same master-wallet value
-> `FEE_GRANTER`, so if you run TS and Python workers against the same Forge tenant
-> they currently expect the address under different env var names. A single
-> canonical name across the TS/Python/Go SDKs is being coordinated.
+> **Fee-granter env var name:** `FORGE_MASTER_GRANTER_ADDRESS` is the canonical
+> name for the master fee-granter address across the Allora SDKs (Python, TS, Go).
+> This SDK does not read it directly — pass the value to `fee.granter` as shown
+> above — but using the same variable name keeps TS, Python, and Go workers that
+> target the same Forge tenant configured consistently. (The Python SDK still
+> accepts the former name `FEE_GRANTER` for one release, with a deprecation
+> warning.)
 
 > **Node version:** the `./signing` subpath pulls in cosmjs, whose `@noble/*` v2
 > dependencies are ESM-only. CommonJS (`require()`) consumers therefore need Node
