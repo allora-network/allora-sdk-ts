@@ -711,10 +711,10 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
    * (the `master_granter` field), so a master-wallet rotation does not force consumers to
    * reconfigure.
    *
-   * Precedence — prefer the discovered value, with the canonical
-   * `FORGE_MASTER_GRANTER_ADDRESS` env var as the override/fallback:
+   * Precedence — prefer an explicit `FORGE_MASTER_GRANTER_ADDRESS` env override, with this
+   * backend-discovered value as the fallback (env-first, matching the Go and Python SDKs):
    *
-   *   fee.granter = signer.masterGranter ?? process.env.FORGE_MASTER_GRANTER_ADDRESS;
+   *   fee.granter = process.env.FORGE_MASTER_GRANTER_ADDRESS ?? signer.masterGranter;
    *
    * Leave `fee.granter` unset to have the signing wallet pay its own gas.
    */
