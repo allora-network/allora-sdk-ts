@@ -128,7 +128,11 @@ async function main() {
     ok: true,
     status: 200,
     text: async () =>
-      JSON.stringify({ id: WALLET_ID, address: "allo1wrong", pubkey: toHex(pubkey) }),
+      JSON.stringify({
+        id: WALLET_ID,
+        address: "allo1wrong",
+        pubkey: toHex(pubkey),
+      }),
   });
   await assert.rejects(
     () =>
@@ -416,10 +420,7 @@ async function main() {
     }
     return okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
   });
-  await assert.rejects(
-    () => highSSigner.signDirect(address, signDoc),
-    /low-S/,
-  );
+  await assert.rejects(() => highSSigner.signDirect(address, signDoc), /low-S/);
 
   // A /sign response that OMITS the pubkey echo must fail closed even when the
   // signature itself would verify, so a backend cannot strip the echo to dodge the

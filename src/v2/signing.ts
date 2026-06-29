@@ -423,10 +423,7 @@ class ForgeSigningWalletClient {
    * /api/v1/signing-wallets with a topic_id; provisioning rides on the create endpoint
    * because a static /provision sub-route collides with /:id in the backend router).
    * Safe to call on every worker start: the backend enforces one wallet per (user, topic). */
-  async provision(
-    topicId: number,
-    label?: string,
-  ): Promise<SigningWalletInfo> {
+  async provision(topicId: number, label?: string): Promise<SigningWalletInfo> {
     const payload = label
       ? { topic_id: topicId, label }
       : { topic_id: topicId };
