@@ -391,6 +391,36 @@ async function main() {
     /failed local verification/,
   );
 
+  // A high-S (non-canonical) signature is the malleated twin (r, n-s) of a valid one. It
+  // still verifies under cosmjs (which is called with lowS:false), so it passes the echo,
+  // length, and verify checks — but the SDK's explicit BIP-62 low-S enforcement must
+  // reject it, matching the Go/Python siblings.
+  const SECP256K1_N = BigInt(
+    "0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
+  );
+  const highSSigner = await createWith(async (_url, init) => {
+    if (init && init.method === "POST") {
+      const body = JSON.parse(init.body);
+      const sig = await Secp256k1.createSignature(
+        sha256(fromHex(body.payload)),
+        privkey,
+      );
+      const fixed = sig.toFixedLength(); // r(32) || s(32) || recovery(1), low-S
+      const sHigh = (SECP256K1_N - BigInt("0x" + toHex(fixed.slice(32, 64))))
+        .toString(16)
+        .padStart(64, "0");
+      const sig64 = new Uint8Array(64);
+      sig64.set(fixed.slice(0, 32), 0);
+      sig64.set(fromHex(sHigh), 32);
+      return okJson({ signature: toHex(sig64), pubkey: toHex(pubkey) });
+    }
+    return okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
+  });
+  await assert.rejects(
+    () => highSSigner.signDirect(address, signDoc),
+    /low-S/,
+  );
+
   // A /sign response that OMITS the pubkey echo must fail closed even when the
   // signature itself would verify, so a backend cannot strip the echo to dodge the
   // rotation/mis-route check.

@@ -192,6 +192,30 @@ function assertWalletIdUuid(walletId: string): void {
   }
 }
 
+/** secp256k1 half curve-order (n/2), big-endian. An ECDSA signature's s component is in
+ * canonical BIP-62 low-S form iff s <= n/2. @cosmjs/crypto's Secp256k1.verifySignature is
+ * called with lowS:false, so it accepts a malleated high-S twin; the SDK enforces low-S
+ * itself to stay at parity with the Go (cosmos-sdk secp256k1.VerifySignature) and Python
+ * (cosmpy) siblings, which reject high-S. */
+const SECP256K1_HALF_ORDER = fromHex(
+  "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0",
+);
+
+/** Report whether the 32-byte big-endian s value is in low-S (canonical) form. A
+ * lexicographic comparison of equal-length big-endian byte strings is an unsigned integer
+ * comparison, so this is exactly s <= n/2 (s == n/2 is still canonical). */
+function isLowS(s: Uint8Array): boolean {
+  for (let i = 0; i < SECP256K1_HALF_ORDER.length; i++) {
+    if (s[i] < SECP256K1_HALF_ORDER[i]) {
+      return true;
+    }
+    if (s[i] > SECP256K1_HALF_ORDER[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * HTTP client for the Forge signing-wallet API.
  *
@@ -358,12 +382,10 @@ class ForgeSigningWalletClient {
     }
     // Treat the backend as untrusted: cryptographically verify the returned
     // signature against the cached wallet pubkey before handing it back, so a
-    // wrong-key, non-canonical (high-S), MITM, or byte-corruption regression is
-    // caught here with an actionable error instead of as an opaque on-chain
-    // "signature verification failed" rejection. The pubkey-echo check above is
-    // not a substitute: a backend echoing the correct pubkey alongside a bad
-    // signature passes it. Parity with allora-sdk-go (pubKey.VerifySignature)
-    // and allora-sdk-py (RemoteSigner._verify).
+    // wrong-key, MITM, or byte-corruption regression is caught here with an
+    // actionable error instead of as an opaque on-chain "signature verification
+    // failed" rejection. The pubkey-echo check above is not a substitute: a backend
+    // echoing the correct pubkey alongside a bad signature passes it.
     if (expectedPubkeyHex) {
       const digest = prehashed ? payload : sha256(payload);
       const parsedSig = new Secp256k1Signature(
@@ -380,7 +402,17 @@ class ForgeSigningWalletClient {
       );
       if (!valid) {
         throw new Error(
-          `Forge backend signature for ${walletId} failed local verification (non-canonical/high-S or wrong key)`,
+          `Forge backend signature for ${walletId} failed local verification (wrong key or corrupted signature)`,
+        );
+      }
+      // Enforce BIP-62 low-S explicitly: cosmjs calls secp256k1.verify with lowS:false,
+      // so verifySignature above accepts a malleated high-S twin. The Go (cosmos-sdk
+      // secp256k1.VerifySignature) and Python (cosmpy) siblings reject high-S and the
+      // chain enforces it at broadcast, so reject it here too — this keeps parity and
+      // keeps off-chain signDigest signatures non-malleable.
+      if (!isLowS(sig.slice(32, 64))) {
+        throw new Error(
+          `Forge backend signature for ${walletId} is not in canonical low-S form (BIP-62 high-S)`,
         );
       }
     }
