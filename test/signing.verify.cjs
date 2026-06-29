@@ -22,6 +22,8 @@ async function main() {
   const keypair = await Secp256k1.makeKeypair(privkey);
   const pubkey = Secp256k1.compressPubkey(keypair.pubkey);
   const address = toBech32("allo", rawSecp256k1PubkeyToRawAddress(pubkey));
+  // walletId must be a UUID (the SDK validates its shape at construction).
+  const WALLET_ID = "11111111-1111-4111-8111-111111111111";
 
   // Fake Forge backend: GET returns wallet info; POST signs with the local key.
   const fetchFn = async (_url, init) => {
@@ -42,14 +44,14 @@ async function main() {
       ok: true,
       status: 200,
       text: async () =>
-        JSON.stringify({ id: "w", address, pubkey: toHex(pubkey) }),
+        JSON.stringify({ id: WALLET_ID, address, pubkey: toHex(pubkey) }),
     };
   };
 
   const signer = await ForgeRemoteSigner.create({
     backendUrl: "http://localhost",
     apiKey: "forge_sk_test",
-    walletId: "w",
+    walletId: WALLET_ID,
     fetchFn,
     allowInsecureHttp: true,
   });
@@ -82,7 +84,7 @@ async function main() {
   // --- clearAssociation -----------------------------------------------------
   // clearAssociation POSTs to /clear-association and must accept a 204 No Content.
   const walletInfo = () =>
-    JSON.stringify({ id: "w", address, pubkey: toHex(pubkey) });
+    JSON.stringify({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
   let clearedPath = null;
   const clearFetch = async (url, init) => {
     if (init && init.method === "POST" && url.endsWith("/clear-association")) {
@@ -94,14 +96,14 @@ async function main() {
   const clearSigner = await ForgeRemoteSigner.create({
     backendUrl: "http://localhost",
     apiKey: "forge_sk_test",
-    walletId: "w",
+    walletId: WALLET_ID,
     fetchFn: clearFetch,
     allowInsecureHttp: true,
   });
   await clearSigner.clearAssociation();
   assert.equal(
     clearedPath,
-    "http://localhost/api/v1/signing-wallets/w/clear-association",
+    `http://localhost/api/v1/signing-wallets/${WALLET_ID}/clear-association`,
     "clearAssociation must POST to the wallet's clear-association path",
   );
 
@@ -115,7 +117,7 @@ async function main() {
   const clearFailSigner = await ForgeRemoteSigner.create({
     backendUrl: "http://localhost",
     apiKey: "forge_sk_test",
-    walletId: "w",
+    walletId: WALLET_ID,
     fetchFn: clearFailFetch,
     allowInsecureHttp: true,
   });
@@ -126,14 +128,14 @@ async function main() {
     ok: true,
     status: 200,
     text: async () =>
-      JSON.stringify({ id: "w", address: "allo1wrong", pubkey: toHex(pubkey) }),
+      JSON.stringify({ id: WALLET_ID, address: "allo1wrong", pubkey: toHex(pubkey) }),
   });
   await assert.rejects(
     () =>
       ForgeRemoteSigner.create({
         backendUrl: "http://localhost",
         apiKey: "k",
-        walletId: "w",
+        walletId: WALLET_ID,
         fetchFn: badFetch,
         allowInsecureHttp: true,
       }),
@@ -151,7 +153,7 @@ async function main() {
     ForgeRemoteSigner.create({
       backendUrl: "http://localhost",
       apiKey,
-      walletId: "w",
+      walletId: WALLET_ID,
       fetchFn: walletFetch,
       allowInsecureHttp: true,
     });
@@ -162,7 +164,7 @@ async function main() {
       ForgeRemoteSigner.create({
         backendUrl: "http://localhost",
         apiKey: "k",
-        walletId: "w",
+        walletId: WALLET_ID,
         fetchFn,
       }),
     /must use https/,
@@ -175,7 +177,7 @@ async function main() {
       ForgeRemoteSigner.create({
         backendUrl: "http://forge.test",
         apiKey: "k",
-        walletId: "w",
+        walletId: WALLET_ID,
         fetchFn,
         allowInsecureHttp: true,
       }),
@@ -189,7 +191,7 @@ async function main() {
       ForgeRemoteSigner.create({
         backendUrl: "https://user:pass@forge.allora.network",
         apiKey: "k",
-        walletId: "w",
+        walletId: WALLET_ID,
         fetchFn,
       }),
     /embedded userinfo/,
@@ -201,7 +203,7 @@ async function main() {
       ForgeRemoteSigner.create({
         backendUrl: "https://forge.allora.network/?token=abc",
         apiKey: "k",
-        walletId: "w",
+        walletId: WALLET_ID,
         fetchFn,
       }),
     /query string or fragment/,
@@ -211,10 +213,24 @@ async function main() {
       ForgeRemoteSigner.create({
         backendUrl: "https://forge.allora.network/#frag",
         apiKey: "k",
-        walletId: "w",
+        walletId: WALLET_ID,
         fetchFn,
       }),
     /query string or fragment/,
+  );
+
+  // walletId must be a UUID: a misconfig like "undefined" or "TODO" fails fast at
+  // construction instead of surfacing as an opaque backend 404. Parity with Go.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "http://localhost",
+        apiKey: "k",
+        walletId: "not-a-uuid",
+        fetchFn,
+        allowInsecureHttp: true,
+      }),
+    /walletId must be a UUID/,
   );
 
   // An empty wallet-info id must fail closed: it cannot bind the response to the
@@ -231,14 +247,14 @@ async function main() {
   await assert.rejects(
     () =>
       createWith(async () =>
-        okJson({ id: "w", address: "", pubkey: toHex(pubkey) }),
+        okJson({ id: WALLET_ID, address: "", pubkey: toHex(pubkey) }),
       ),
     /missing 'address'/,
   );
 
   // An absent pubkey fails with Forge context.
   await assert.rejects(
-    () => createWith(async () => okJson({ id: "w", address })),
+    () => createWith(async () => okJson({ id: WALLET_ID, address })),
     /missing 'pubkey'/,
   );
 
@@ -290,7 +306,7 @@ async function main() {
   let sentApiKey;
   await createWith(async (_url, init) => {
     sentApiKey = init && init.headers && init.headers["X-Forge-API-Key"];
-    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+    return okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
   }, "forge_sk_header");
   assert.equal(
     sentApiKey,
@@ -308,7 +324,7 @@ async function main() {
   const shortSigSigner = await createWith(async (_url, init) =>
     init && init.method === "POST"
       ? okJson({ signature: "ab".repeat(63), pubkey: toHex(pubkey) })
-      : okJson({ id: "w", address, pubkey: toHex(pubkey) }),
+      : okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) }),
   );
   await assert.rejects(
     () => shortSigSigner.signDirect(address, signDoc),
@@ -330,7 +346,7 @@ async function main() {
         pubkey: toHex(otherPubkey),
       });
     }
-    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+    return okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
   });
   await assert.rejects(
     () => rotatedSigner.signDirect(address, signDoc),
@@ -351,7 +367,7 @@ async function main() {
         pubkey: toHex(pubkey),
       });
     }
-    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+    return okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
   });
   await assert.rejects(
     () => corruptSigner.signDirect(address, signDoc),
@@ -370,7 +386,7 @@ async function main() {
       );
       return okJson({ signature: toHex(sig.toFixedLength().slice(0, 64)) });
     }
-    return okJson({ id: "w", address, pubkey: toHex(pubkey) });
+    return okJson({ id: WALLET_ID, address, pubkey: toHex(pubkey) });
   });
   await assert.rejects(
     () => noEchoSigner.signDirect(address, signDoc),

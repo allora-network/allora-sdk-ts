@@ -178,6 +178,20 @@ function isLoopbackHost(hostname: string): boolean {
   );
 }
 
+/** Canonical 8-4-4-4-12 UUID shape (any version/variant). */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Throw unless walletId is a UUID. A truthy-but-bogus misconfiguration ("undefined",
+ * "TODO", a stray value that survives encodeURIComponent) would otherwise be interpolated
+ * into the request path and surface only as an opaque backend 404; this fails fast at
+ * signer construction instead. Parity with allora-sdk-go's uuid.Parse(cfg.WalletID). */
+function assertWalletIdUuid(walletId: string): void {
+  if (!UUID_RE.test(walletId)) {
+    throw new Error(`walletId must be a UUID (got "${walletId}")`);
+  }
+}
+
 /**
  * HTTP client for the Forge signing-wallet API.
  *
@@ -491,6 +505,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     if (!config.backendUrl || !config.apiKey || !config.walletId) {
       throw new Error("backendUrl, apiKey, and walletId are all required");
     }
+    assertWalletIdUuid(config.walletId);
     const prefix = config.prefix ?? DEFAULT_PREFIX;
     const client = new ForgeSigningWalletClient(
       config.backendUrl,
