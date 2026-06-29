@@ -88,3 +88,12 @@ await client.signAndBroadcast(signer.address, msgs, fee)
 > **≥20.19** (or **≥22.12**), where `require(ESM)` is supported; ESM `import` works
 > on Node ≥18. The data-only main entrypoint (`@alloralabs/allora-sdk/v2`) has no
 > such requirement.
+
+> **Transient failures & retries:** each backend call makes a single attempt bounded by a
+> hard timeout (`timeoutMs`, default 30s) and is **not** retried. A transient 5xx or
+> connection blip during `create()` / `provisionForTopic()` (wallet-info `GET`) or during a
+> sign therefore fails the whole operation. If you need resilience, inject a retrying
+> `fetchFn` — retry only the idempotent **GET** wallet-info fetch, never the `POST`
+> sign/provision or `DELETE` revoke calls — or wrap `create()` / `provisionForTopic()` in
+> your own retry on worker start. (allora-sdk-py ships a built-in GET-only retry policy;
+> this SDK and allora-sdk-go leave it to the caller via the injectable `fetchFn`.)
