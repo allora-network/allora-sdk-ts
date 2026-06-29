@@ -342,7 +342,12 @@ class ForgeSigningWalletClient {
         `Forge wallet-info response for ${walletId} missing 'id'; cannot verify the backend bound the response to the requested wallet`,
       );
     }
-    if (info.id !== walletId) {
+    // Compare case-insensitively: UUIDs are case-insensitive (RFC 4122 §3) and the
+    // backend re-serializes them in lowercase canonical form, so a caller who configured
+    // an uppercase walletId (which assertWalletIdUuid accepts via the /i regex) would
+    // otherwise be rejected here against the lowercased echo despite the ids being equal.
+    // Parity with the Go and Python siblings, which normalize before comparing.
+    if (info.id.toLowerCase() !== walletId.toLowerCase()) {
       throw new Error(
         `Forge wallet-info returned id '${info.id}', expected '${walletId}'; the backend may have mis-routed the wallet`,
       );
