@@ -383,6 +383,16 @@ class ForgeSigningWalletClient {
     prehashed: boolean,
     expectedPubkeyHex: string,
   ): Promise<Uint8Array> {
+    // expectedPubkeyHex is required and non-empty: the pubkey-echo check and the local
+    // cryptographic verify below are load-bearing security gates, not optional. An empty
+    // string is still typed `string` (no compile error) but is falsy, so a bare
+    // `if (expectedPubkeyHex)` guard would silently skip all verification on `""`. Reject
+    // it up front, before the network round-trip, so verification can never be bypassed.
+    if (!expectedPubkeyHex) {
+      throw new Error(
+        "expectedPubkeyHex is required and must be a non-empty hex string",
+      );
+    }
     const body = await this.request(
       "POST",
       `/api/v1/signing-wallets/${encodeURIComponent(walletId)}/sign`,
@@ -397,21 +407,19 @@ class ForgeSigningWalletClient {
         `Forge sign response for ${walletId} missing 'signature'`,
       );
     }
-    if (expectedPubkeyHex) {
-      // Fail closed when the backend omits the pubkey echo: a `data.pubkey &&` truthy
-      // guard would let a response that simply drops the field skip the rotation/
-      // mis-route check entirely.
-      if (!data.pubkey) {
-        throw new Error(
-          `Forge sign response for ${walletId} missing 'pubkey' echo; cannot verify the backend signed with the expected wallet`,
-        );
-      }
-      if (data.pubkey.toLowerCase() !== expectedPubkeyHex.toLowerCase()) {
-        throw new Error(
-          `Forge sign response pubkey ${data.pubkey} does not match the wallet pubkey ` +
-            `${expectedPubkeyHex}; the backend may have rotated or mis-routed the wallet`,
-        );
-      }
+    // Fail closed when the backend omits the pubkey echo: a `data.pubkey &&` truthy
+    // guard would let a response that simply drops the field skip the rotation/
+    // mis-route check entirely.
+    if (!data.pubkey) {
+      throw new Error(
+        `Forge sign response for ${walletId} missing 'pubkey' echo; cannot verify the backend signed with the expected wallet`,
+      );
+    }
+    if (data.pubkey.toLowerCase() !== expectedPubkeyHex.toLowerCase()) {
+      throw new Error(
+        `Forge sign response pubkey ${data.pubkey} does not match the wallet pubkey ` +
+          `${expectedPubkeyHex}; the backend may have rotated or mis-routed the wallet`,
+      );
     }
     const sig = fromHex(data.signature);
     if (sig.length !== 64) {
@@ -425,35 +433,33 @@ class ForgeSigningWalletClient {
     // actionable error instead of as an opaque on-chain "signature verification
     // failed" rejection. The pubkey-echo check above is not a substitute: a backend
     // echoing the correct pubkey alongside a bad signature passes it.
-    if (expectedPubkeyHex) {
-      const digest = prehashed ? payload : sha256(payload);
-      const parsedSig = new Secp256k1Signature(
-        sig.slice(0, 32),
-        sig.slice(32, 64),
+    const digest = prehashed ? payload : sha256(payload);
+    const parsedSig = new Secp256k1Signature(
+      sig.slice(0, 32),
+      sig.slice(32, 64),
+    );
+    const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
+    // Wrap in Promise.resolve so this works on both sync (@cosmjs/crypto >=0.38)
+    // and async (<=0.37) verifySignature: peerDependencies admits >=0.32, and on
+    // 0.32-0.37 verifySignature returns a Promise, so a bare `if (!verifySignature(...))`
+    // would test a truthy Promise and silently skip the throw (dead verification).
+    const valid = await Promise.resolve(
+      Secp256k1.verifySignature(parsedSig, digest, pubkey),
+    );
+    if (!valid) {
+      throw new Error(
+        `Forge backend signature for ${walletId} failed local verification (wrong key or corrupted signature)`,
       );
-      const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
-      // Wrap in Promise.resolve so this works on both sync (@cosmjs/crypto >=0.38)
-      // and async (<=0.37) verifySignature: peerDependencies admits >=0.32, and on
-      // 0.32-0.37 verifySignature returns a Promise, so a bare `if (!verifySignature(...))`
-      // would test a truthy Promise and silently skip the throw (dead verification).
-      const valid = await Promise.resolve(
-        Secp256k1.verifySignature(parsedSig, digest, pubkey),
+    }
+    // Enforce BIP-62 low-S explicitly: cosmjs calls secp256k1.verify with lowS:false,
+    // so verifySignature above accepts a malleated high-S twin. The Go (cosmos-sdk
+    // secp256k1.VerifySignature) and Python (cosmpy) siblings reject high-S and the
+    // chain enforces it at broadcast, so reject it here too — this keeps parity and
+    // keeps off-chain signDigest signatures non-malleable.
+    if (!isLowS(sig.slice(32, 64))) {
+      throw new Error(
+        `Forge backend signature for ${walletId} is not in canonical low-S form (BIP-62 high-S)`,
       );
-      if (!valid) {
-        throw new Error(
-          `Forge backend signature for ${walletId} failed local verification (wrong key or corrupted signature)`,
-        );
-      }
-      // Enforce BIP-62 low-S explicitly: cosmjs calls secp256k1.verify with lowS:false,
-      // so verifySignature above accepts a malleated high-S twin. The Go (cosmos-sdk
-      // secp256k1.VerifySignature) and Python (cosmpy) siblings reject high-S and the
-      // chain enforces it at broadcast, so reject it here too — this keeps parity and
-      // keeps off-chain signDigest signatures non-malleable.
-      if (!isLowS(sig.slice(32, 64))) {
-        throw new Error(
-          `Forge backend signature for ${walletId} is not in canonical low-S form (BIP-62 high-S)`,
-        );
-      }
     }
     return sig;
   }
