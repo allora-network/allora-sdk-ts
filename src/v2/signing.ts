@@ -66,11 +66,14 @@ export interface SigningWalletInfo {
   /** Hex-encoded 33-byte compressed secp256k1 public key. */
   pubkey: string;
   /** Master fee-granter (allo1…) the backend advertises for this wallet, when a master
-   * wallet is configured (omitted otherwise). Mapped from the backend's snake_case JSON
-   * field `master_granter`; surfaced on the signer as {@link ForgeRemoteSigner.masterGranter}
-   * so a worker can discover the granter at runtime instead of configuring it out-of-band,
-   * making a master-wallet rotation transparent. */
-  masterGranter?: string;
+   * wallet is configured (omitted otherwise). This is the raw snake_case wire field exactly
+   * as emitted by forge-v2 (`json:"master_granter,omitempty"`) and allora-sdk-py;
+   * `parseForgeJson` does no key transformation, so the property name must match the wire
+   * key — a camelCase `masterGranter` would always read back `undefined`. Surfaced
+   * ergonomically on the signer as {@link ForgeRemoteSigner.masterGranter} so a worker can
+   * discover the granter at runtime instead of configuring it out-of-band, making a
+   * master-wallet rotation transparent. */
+  master_granter?: string;
 }
 
 export interface ForgeRemoteSignerConfig {
@@ -698,9 +701,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     // prefix, or non-canonical form. Defense-in-depth parity with allora-sdk-go's
     // ResolveFeeGranter, which sdk.AccAddressFromBech32-parses the value (the chain still
     // enforces the actual feegrant at broadcast, so this is not the sole gate).
-    const granter: unknown =
-      info.masterGranter ??
-      (info as { master_granter?: unknown }).master_granter;
+    const granter: unknown = info.master_granter;
     let masterGranter: string | undefined;
     if (typeof granter === "string" && granter.length > 0) {
       try {
