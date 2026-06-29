@@ -597,6 +597,85 @@ async function main() {
     /must be 32 bytes/,
   );
 
+  // provisionForTopic happy path (ENGN-8456 headline feature): POST /api/v1/signing-wallets
+  // with {topic_id, label?} returns wallet-info, fromInfo() cross-checks it, and the
+  // resulting signer produces a verifiable signature. Exercise both the label-present and
+  // label-absent branches since provision() emits a different JSON body for each — a
+  // regression in the endpoint URL, the topic_id field name, or the optional label branch
+  // would otherwise pass CI undetected.
+  for (const label of ["worker-eth-8h", undefined]) {
+    let provisionPath = null;
+    let provisionBody = null;
+    const provisionFetch = async (url, init) => {
+      if (init && init.method === "POST" && url.endsWith("/sign")) {
+        const reqBody = JSON.parse(init.body);
+        const payload = fromHex(reqBody.payload);
+        const digest = reqBody.prehashed ? payload : sha256(payload);
+        const sig = await Secp256k1.createSignature(digest, privkey);
+        const sig64 = sig.toFixedLength().slice(0, 64);
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({ signature: toHex(sig64), pubkey: toHex(pubkey) }),
+        };
+      }
+      // The provision call: POST /api/v1/signing-wallets (no /:id suffix).
+      provisionPath = url;
+      provisionBody = JSON.parse(init.body);
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({ id: WALLET_ID, address, pubkey: toHex(pubkey) }),
+      };
+    };
+    const provisionSigner = await ForgeRemoteSigner.provisionForTopic(
+      {
+        backendUrl: "http://localhost",
+        apiKey: "k",
+        fetchFn: provisionFetch,
+        allowInsecureHttp: true,
+      },
+      42,
+      label,
+    );
+    assert.ok(
+      provisionPath.endsWith("/api/v1/signing-wallets"),
+      "provision must POST to /api/v1/signing-wallets",
+    );
+    assert.equal(provisionBody.topic_id, 42, "provision body carries topic_id");
+    if (label === undefined) {
+      assert.ok(
+        !("label" in provisionBody),
+        "label is omitted from the provision body when not provided",
+      );
+    } else {
+      assert.equal(provisionBody.label, label, "provision body carries label");
+    }
+    assert.equal(
+      provisionSigner.address,
+      address,
+      "provisioned signer address matches the backend wallet",
+    );
+    const provDoc = {
+      bodyBytes: Uint8Array.from([9, 8, 7]),
+      authInfoBytes: Uint8Array.from([6, 5, 4]),
+      chainId: "allora-testnet-1",
+      accountNumber: BigInt(11),
+    };
+    const provResp = await provisionSigner.signDirect(address, provDoc);
+    const provSig = fromBase64(provResp.signature.signature);
+    assert.ok(
+      await Secp256k1.verifySignature(
+        new Secp256k1Signature(provSig.slice(0, 32), provSig.slice(32, 64)),
+        sha256(makeSignBytes(provDoc)),
+        keypair.pubkey,
+      ),
+      "provisionForTopic signer signDirect must verify against the wallet pubkey",
+    );
+  }
+
   // provisionForTopic must reject a topicId above the JS safe-integer ceiling: a uint64
   // topic ID beyond 2^53-1 loses precision before JSON.stringify and would bind the
   // worker to the wrong topic. Rejected locally, before any backend call.
