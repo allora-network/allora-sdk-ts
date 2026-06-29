@@ -439,10 +439,10 @@ class ForgeSigningWalletClient {
       sig.slice(32, 64),
     );
     const pubkey = Secp256k1.uncompressPubkey(fromHex(expectedPubkeyHex));
-    // Wrap in Promise.resolve so this works on both sync (@cosmjs/crypto >=0.38)
-    // and async (<=0.37) verifySignature: peerDependencies admits >=0.32, and on
-    // 0.32-0.37 verifySignature returns a Promise, so a bare `if (!verifySignature(...))`
-    // would test a truthy Promise and silently skip the throw (dead verification).
+    // Wrap in Promise.resolve for forward-compatibility: on @cosmjs/crypto >=0.38 (the
+    // current peerDependencies floor) verifySignature is synchronous, so this is a no-op
+    // today — but guarding against a future async form prevents a bare
+    // `if (!verifySignature(...))` from silently testing a truthy Promise (dead verification).
     const valid = await Promise.resolve(
       Secp256k1.verifySignature(parsedSig, digest, pubkey),
     );
