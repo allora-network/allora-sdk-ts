@@ -79,6 +79,48 @@ async function main() {
     "signDirect signature must verify against the wallet pubkey",
   );
 
+  // --- clearAssociation -----------------------------------------------------
+  // clearAssociation POSTs to /clear-association and must accept a 204 No Content.
+  const walletInfo = () =>
+    JSON.stringify({ id: "w", address, pubkey: toHex(pubkey) });
+  let clearedPath = null;
+  const clearFetch = async (url, init) => {
+    if (init && init.method === "POST" && url.endsWith("/clear-association")) {
+      clearedPath = url;
+      return { ok: true, status: 204, text: async () => "" };
+    }
+    return { ok: true, status: 200, text: async () => walletInfo() };
+  };
+  const clearSigner = await ForgeRemoteSigner.create({
+    backendUrl: "http://forge.test",
+    apiKey: "forge_sk_test",
+    walletId: "w",
+    fetchFn: clearFetch,
+    allowInsecureHttp: true,
+  });
+  await clearSigner.clearAssociation();
+  assert.equal(
+    clearedPath,
+    "http://forge.test/api/v1/signing-wallets/w/clear-association",
+    "clearAssociation must POST to the wallet's clear-association path",
+  );
+
+  // A non-2xx clear-association response must reject.
+  const clearFailFetch = async (url, init) => {
+    if (init && init.method === "POST" && url.endsWith("/clear-association")) {
+      return { ok: false, status: 404, text: async () => "not found" };
+    }
+    return { ok: true, status: 200, text: async () => walletInfo() };
+  };
+  const clearFailSigner = await ForgeRemoteSigner.create({
+    backendUrl: "http://forge.test",
+    apiKey: "forge_sk_test",
+    walletId: "w",
+    fetchFn: clearFailFetch,
+    allowInsecureHttp: true,
+  });
+  await assert.rejects(() => clearFailSigner.clearAssociation(), /404/);
+
   // A backend address inconsistent with the pubkey must be rejected.
   const badFetch = async () => ({
     ok: true,

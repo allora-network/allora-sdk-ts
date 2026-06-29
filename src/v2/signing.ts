@@ -343,6 +343,22 @@ class ForgeSigningWalletClient {
     return info;
   }
 
+  /** Release a managed wallet's topic binding (Forge-side bookkeeping only; does NOT
+   * unregister the worker on-chain). Mirrors the sibling SDKs (allora-sdk-py
+   * ForgeBackendClient.clear_association, allora-sdk-go RemoteSigner.ClearAssociation):
+   * POST /api/v1/signing-wallets/{id}/clear-association with no body. Call it before
+   * re-provisioning the wallet against a new topic or before decommission. Throws when the
+   * backend returns a non-2xx (e.g. 404 for an unknown / foreign / already-cleared wallet),
+   * so the caller decides whether an unbind failure is fatal or best-effort. */
+  async clearAssociation(walletId: string): Promise<void> {
+    // clear-association returns 204 No Content; request() returns "" for an ok response
+    // with an empty body, so there is nothing to parse.
+    await this.request(
+      "POST",
+      `/api/v1/signing-wallets/${encodeURIComponent(walletId)}/clear-association`,
+    );
+  }
+
   private async request(
     method: "GET" | "POST",
     path: string,
@@ -564,5 +580,15 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
       throw new Error(`digest must be 32 bytes, got ${digest.length}`);
     }
     return this.client.sign(this.walletId, digest, true, this.pubkeyHex);
+  }
+
+  /**
+   * Release this wallet's topic binding on the Forge backend (Forge-side bookkeeping
+   * only; does NOT unregister the worker on-chain). Convenience wrapper over
+   * ForgeSigningWalletClient.clearAssociation for this signer's own wallet — call it before
+   * re-provisioning against a new topic or before decommission. Throws on a non-2xx response.
+   */
+  async clearAssociation(): Promise<void> {
+    await this.client.clearAssociation(this.walletId);
   }
 }
