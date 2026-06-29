@@ -477,6 +477,10 @@ class ForgeSigningWalletClient {
    * backend returns a non-2xx (e.g. 404 for an unknown / foreign / already-cleared wallet),
    * so the caller decides whether an unbind failure is fatal or best-effort. */
   async clearAssociation(walletId: string): Promise<void> {
+    // Fail fast on a non-UUID id before issuing the request, matching revoke() and
+    // allora-sdk-go's prepareWalletByIDCall, which guards both operations identically;
+    // otherwise a malformed id surfaces only as an opaque backend 404/400.
+    assertWalletIdUuid(walletId);
     // clear-association returns 204 No Content; request() returns "" for an ok response
     // with an empty body, so there is nothing to parse.
     await this.request(
