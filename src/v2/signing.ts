@@ -837,7 +837,12 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     signerAddress: string,
     signDoc: SignDoc,
   ): Promise<DirectSignResponse> {
-    if (signerAddress !== this.accountAddress) {
+    // Compare case-insensitively: per BIP-173 an all-lowercase and an all-uppercase bech32
+    // string encode the same address. cosmjs toBech32 always emits lowercase (so
+    // this.accountAddress is lowercase), but a caller may pass a BIP-173 uppercase form from
+    // a wallet UI or non-cosmjs library; rejecting it would be wrong. Same root cause as the
+    // case-sensitive walletId echo-check.
+    if (signerAddress.toLowerCase() !== this.accountAddress) {
       throw new Error(
         `address ${signerAddress} does not match signer address ${this.accountAddress}`,
       );
