@@ -46,10 +46,10 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
-    "@cosmjs/amino": ">=0.32 <1.0.0",
-    "@cosmjs/crypto": ">=0.32 <1.0.0",
-    "@cosmjs/encoding": ">=0.32 <1.0.0",
-    "@cosmjs/proto-signing": ">=0.32 <1.0.0",
+    "@cosmjs/amino": ">=0.38 <1.0.0",
+    "@cosmjs/crypto": ">=0.38 <1.0.0",
+    "@cosmjs/encoding": ">=0.38 <1.0.0",
+    "@cosmjs/proto-signing": ">=0.38 <1.0.0",
     "cosmjs-types": ">=0.9 <1.0.0"
   },
   "peerDependenciesMeta": {
