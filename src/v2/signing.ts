@@ -248,7 +248,18 @@ class ForgeSigningWalletClient {
     allowInsecureHttp = false,
     private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
-    const parsed = new URL(baseUrl);
+    // Parse with Forge context: a bare `new URL(baseUrl)` throws a context-free
+    // `TypeError: Invalid URL` for a malformed value (e.g. "forge.allora.network" with no
+    // scheme, or ""), unlike every other validation below which throws a backendUrl-prefixed
+    // message. Wrap it so an operator's stack trace points back at the signing SDK.
+    let parsed: URL;
+    try {
+      parsed = new URL(baseUrl);
+    } catch (err) {
+      throw new Error(
+        `backendUrl is not a valid absolute URL: ${(err as Error).message}`,
+      );
+    }
     // Reject embedded credentials, query strings, and fragments, and require a hostname.
     // Userinfo (user:pass@host) would be sent as HTTP Basic Auth on every request
     // alongside the X-Forge-API-Key and would leak into fetch error strings/operator
