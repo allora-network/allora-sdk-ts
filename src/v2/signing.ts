@@ -481,9 +481,16 @@ class ForgeSigningWalletClient {
       body,
       `provision (topic ${topicId})`,
     );
-    if (!info.id || !info.pubkey) {
+    // Report the missing field by name (matching getWallet's per-field guards) so a caller
+    // knows which one the backend omitted, rather than a combined "id/pubkey" message.
+    if (!info.pubkey) {
       throw new Error(
-        `Forge provision response for topic ${topicId} missing 'id'/'pubkey'`,
+        `Forge provision response for topic ${topicId} missing 'pubkey'`,
+      );
+    }
+    if (!info.id) {
+      throw new Error(
+        `Forge provision response for topic ${topicId} missing 'id'`,
       );
     }
     return info;
