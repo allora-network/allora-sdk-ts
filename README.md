@@ -36,6 +36,14 @@ Delegate transaction signing to the Forge backend (a Privy-managed server wallet
 of holding a private key. `ForgeRemoteSigner` is a cosmjs `OfflineDirectSigner`, so it
 plugs straight into `SigningStargateClient`.
 
+The `./signing` subpath relies on cosmjs, declared as optional `peerDependencies` — a plain
+`npm install @alloralabs/allora-sdk` does **not** pull them in. Install them alongside the
+SDK before using `ForgeRemoteSigner`:
+
+```
+npm install @cosmjs/amino @cosmjs/crypto @cosmjs/encoding @cosmjs/proto-signing cosmjs-types @cosmjs/stargate
+```
+
 ```typescript
 import { ForgeRemoteSigner } from '@alloralabs/allora-sdk/signing'
 import { SigningStargateClient } from '@cosmjs/stargate'

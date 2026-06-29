@@ -50,6 +50,7 @@
     "@cosmjs/crypto": ">=0.38 <1.0.0",
     "@cosmjs/encoding": ">=0.38 <1.0.0",
     "@cosmjs/proto-signing": ">=0.38 <1.0.0",
+    "@cosmjs/stargate": ">=0.38 <1.0.0",
     "cosmjs-types": ">=0.9 <1.0.0"
   },
   "peerDependenciesMeta": {
@@ -57,6 +58,7 @@
     "@cosmjs/crypto": { "optional": true },
     "@cosmjs/encoding": { "optional": true },
     "@cosmjs/proto-signing": { "optional": true },
+    "@cosmjs/stargate": { "optional": true },
     "cosmjs-types": { "optional": true }
   },
   "devDependencies": {
