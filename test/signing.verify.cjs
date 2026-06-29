@@ -254,6 +254,22 @@ async function main() {
     );
   }
 
+  // A timeoutMs above setTimeout's 32-bit max delay (2^31-1) overflows and fires almost
+  // immediately, so a large finite value must be rejected rather than silently degrading a
+  // long timeout to an instant abort.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "http://localhost",
+        apiKey: "k",
+        walletId: WALLET_ID,
+        fetchFn,
+        allowInsecureHttp: true,
+        timeoutMs: 2_147_483_648, // 2^31, one past setTimeout's max delay
+      }),
+    /must not exceed/,
+  );
+
   // An empty wallet-info id must fail closed: it cannot bind the response to the
   // requested wallet, so a mis-routed/cache-poisoned response is not accepted.
   await assert.rejects(

@@ -17,6 +17,11 @@ const API_KEY_HEADER = "X-Forge-API-Key";
 const DEFAULT_PREFIX = "allo";
 /** Total per-request timeout, matching the Go and Python SDK siblings (30s). */
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** Largest delay setTimeout accepts before it overflows its 32-bit signed counter
+ * (Node's TIMEOUT_MAX, also the browser limit): a delay above 2^31-1 ms wraps and fires
+ * almost immediately (~1ms), so a larger finite timeoutMs would silently become an instant
+ * abort instead of a long timeout. Reject it rather than letting it degrade to that. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
 /** Upper bound on a Forge backend response body (1 MiB), matching allora-sdk-go's
  * io.LimitReader cap (allora-sdk-py uses 64 KiB). Legitimate wallet-info and sign
  * responses are well under 1 KiB; anything larger is a broken/hostile endpoint or a
@@ -282,6 +287,15 @@ class ForgeSigningWalletClient {
     if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0) {
       throw new Error(
         `timeoutMs must be a positive finite number of milliseconds (got ${this.timeoutMs})`,
+      );
+    }
+    // Reject a timeout above setTimeout's 32-bit max delay: a larger value overflows and
+    // fires almost immediately, so a caller asking for a long timeout would silently get an
+    // instant abort on every request instead.
+    if (this.timeoutMs > MAX_TIMEOUT_MS) {
+      throw new Error(
+        `timeoutMs must not exceed ${MAX_TIMEOUT_MS}ms (setTimeout's max delay); ` +
+          `a larger value overflows and aborts almost immediately (got ${this.timeoutMs})`,
       );
     }
     this.baseUrl = baseUrl.replace(/\/+$/, "");
