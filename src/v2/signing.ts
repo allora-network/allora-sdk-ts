@@ -480,8 +480,28 @@ class ForgeSigningWalletClient {
     );
   }
 
+  /** Permanently revoke (decommission) a managed wallet on the Forge backend (DELETE
+   * /api/v1/signing-wallets/{id}). This is the destructive counterpart to clearAssociation:
+   * clearing only unbinds the wallet from its topic and is reversible by re-provisioning,
+   * whereas revoking tears the wallet down for good. Mirrors the server's RevokeSigningWallet
+   * handler and the sibling allora-sdk-go RevokeWallet. Throws when the backend returns a
+   * non-2xx (e.g. 404 for an unknown / foreign / already-revoked wallet), so the caller
+   * decides whether the failure is fatal or best-effort. */
+  async revoke(walletId: string): Promise<void> {
+    // Fail fast on a non-UUID id before issuing the request: revoke fires a destructive
+    // DELETE, so a malformed value must never be interpolated into the request path (parity
+    // with allora-sdk-go RevokeWallet, which uuid.Parse-checks the id first).
+    assertWalletIdUuid(walletId);
+    // RevokeSigningWallet answers 200 + JSON ({"message":"wallet revoked"}) or an empty 2xx;
+    // request() returns the (ignored) body for any ok response, so there is nothing to parse.
+    await this.request(
+      "DELETE",
+      `/api/v1/signing-wallets/${encodeURIComponent(walletId)}`,
+    );
+  }
+
   private async request(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     body?: string,
   ): Promise<string> {
@@ -776,5 +796,19 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
    */
   async clearAssociation(): Promise<void> {
     await this.client.clearAssociation(this.walletId);
+  }
+
+  /**
+   * Permanently revoke (decommission) this signer's wallet on the Forge backend. Convenience
+   * wrapper over ForgeSigningWalletClient.revoke for this signer's own wallet. Unlike
+   * clearAssociation (which only unbinds the topic and is reversible by re-provisioning), this
+   * is destructive and irreversible — it tears the wallet down for good, so the signer must
+   * not be used afterwards.
+   *
+   * @throws {Error} If the backend returns a non-2xx response (e.g. 404 for an unknown,
+   * foreign, or already-revoked wallet).
+   */
+  async revoke(): Promise<void> {
+    await this.client.revoke(this.walletId);
   }
 }

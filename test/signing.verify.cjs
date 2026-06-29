@@ -123,6 +123,49 @@ async function main() {
   });
   await assert.rejects(() => clearFailSigner.clearAssociation(), /404/);
 
+  // --- revoke (synth-015) ---------------------------------------------------
+  // revoke issues DELETE /api/v1/signing-wallets/:id and must accept a 204 No Content.
+  let revokedUrl = null;
+  let revokedMethod = null;
+  const revokeFetch = async (url, init) => {
+    if (init && init.method === "DELETE") {
+      revokedUrl = url;
+      revokedMethod = init.method;
+      return { ok: true, status: 204, text: async () => "" };
+    }
+    return { ok: true, status: 200, text: async () => walletInfo() };
+  };
+  const revokeSigner = await ForgeRemoteSigner.create({
+    backendUrl: "http://localhost",
+    apiKey: "forge_sk_test",
+    walletId: WALLET_ID,
+    fetchFn: revokeFetch,
+    allowInsecureHttp: true,
+  });
+  await revokeSigner.revoke();
+  assert.equal(revokedMethod, "DELETE", "revoke must use the DELETE method");
+  assert.equal(
+    revokedUrl,
+    `http://localhost/api/v1/signing-wallets/${WALLET_ID}`,
+    "revoke must DELETE the wallet's path",
+  );
+
+  // A non-2xx revoke response must reject.
+  const revokeFailFetch = async (url, init) => {
+    if (init && init.method === "DELETE") {
+      return { ok: false, status: 404, text: async () => "not found" };
+    }
+    return { ok: true, status: 200, text: async () => walletInfo() };
+  };
+  const revokeFailSigner = await ForgeRemoteSigner.create({
+    backendUrl: "http://localhost",
+    apiKey: "forge_sk_test",
+    walletId: WALLET_ID,
+    fetchFn: revokeFailFetch,
+    allowInsecureHttp: true,
+  });
+  await assert.rejects(() => revokeFailSigner.revoke(), /404/);
+
   // A backend address inconsistent with the pubkey must be rejected.
   const badFetch = async () => ({
     ok: true,
