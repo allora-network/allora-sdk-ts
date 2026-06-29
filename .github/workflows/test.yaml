@@ -40,6 +40,15 @@ jobs:
       env:
         ALLORA_API_KEY: ${{ secrets.ALLORA_TEST_API_KEY }}
 
+    # Also run the signing verification (test/signing.verify.cjs) in the main test job so
+    # the jest suite and signing checks are exercised together — signing.ts is otherwise
+    # untouched by `yarn test` (jest can't load cosmjs's ESM-only deps). Guarded to the
+    # 'unit' leg so it runs once per Node version, not once per test-type. The dedicated
+    # signing job below additionally pins the exact require(ESM) Node floor.
+    - name: Run signing verification
+      if: matrix.test-type == 'unit'
+      run: yarn test:signing
+
   signing:
     runs-on: ubuntu-latest
 
