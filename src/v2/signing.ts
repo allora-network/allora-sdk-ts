@@ -690,7 +690,17 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     info: SigningWalletInfo,
     prefix: string,
   ): ForgeRemoteSigner {
-    const pubkey = fromHex(info.pubkey);
+    // Parse with Forge context: a malformed pubkey hex (odd length, non-hex chars, a 0x
+    // prefix, whitespace) would otherwise leak a bare cosmjs `Error: Invalid hex string`
+    // with no breadcrumb to the signing SDK — every other check in fromInfo is prefixed.
+    let pubkey: Uint8Array;
+    try {
+      pubkey = fromHex(info.pubkey);
+    } catch (err) {
+      throw new Error(
+        `Forge wallet response for ${walletId}: pubkey '${info.pubkey}' is not valid hex (${(err as Error).message})`,
+      );
+    }
     if (pubkey.length !== 33) {
       throw new Error(
         `expected a 33-byte compressed secp256k1 pubkey from the backend, got ${pubkey.length} bytes`,
