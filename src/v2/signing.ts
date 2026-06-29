@@ -171,8 +171,10 @@ async function readBoundedBody(
     total += value.length;
     if (total > limit) {
       // Stop reading and let the underlying connection be reclaimed instead of
-      // streaming a hostile oversized body to completion.
-      await reader.cancel();
+      // streaming a hostile oversized body to completion. Swallow a cancel() rejection
+      // (some runtimes reject cancel on an already-errored stream) so it cannot mask the
+      // size-cap diagnostic, which exists specifically to flag oversized responses.
+      await reader.cancel().catch(() => {});
       throw new Error(`Forge backend response exceeded ${limit} bytes`);
     }
     chunks.push(value);
