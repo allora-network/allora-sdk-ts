@@ -166,8 +166,41 @@ async function main() {
   });
   await assert.rejects(() => revokeFailSigner.revoke(), /404/);
 
-  // A backend address inconsistent with the pubkey must be rejected.
+  // A well-formed backend address that decodes to different bytes than the pubkey-derived
+  // one is a routing/security concern and must be rejected as a mismatch.
+  const otherAddress = toBech32(
+    "allo",
+    rawSecp256k1PubkeyToRawAddress(
+      Secp256k1.compressPubkey(
+        (await Secp256k1.makeKeypair(fromHex("bb".repeat(32)))).pubkey,
+      ),
+    ),
+  );
   const badFetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () =>
+      JSON.stringify({
+        id: WALLET_ID,
+        address: otherAddress,
+        pubkey: toHex(pubkey),
+      }),
+  });
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "http://localhost",
+        apiKey: "k",
+        walletId: WALLET_ID,
+        fetchFn: badFetch,
+        allowInsecureHttp: true,
+      }),
+    /does not match pubkey-derived address/,
+  );
+
+  // A malformed (non-bech32) backend address is a backend data-quality bug and must surface
+  // a distinct "not valid bech32" error rather than the mismatch diagnostic (synth-009).
+  const badBech32Fetch = async () => ({
     ok: true,
     status: 200,
     text: async () =>
@@ -183,10 +216,10 @@ async function main() {
         backendUrl: "http://localhost",
         apiKey: "k",
         walletId: WALLET_ID,
-        fetchFn: badFetch,
+        fetchFn: badBech32Fetch,
         allowInsecureHttp: true,
       }),
-    /does not match pubkey-derived address/,
+    /not valid bech32/,
   );
 
   // --- Negative paths -------------------------------------------------------

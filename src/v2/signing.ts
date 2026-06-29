@@ -713,13 +713,24 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
         `backend wallet response for ${walletId} missing 'address'`,
       );
     }
+    // Distinguish the two failure modes instead of collapsing both into "does not match":
+    // a malformed bech32 address (bad checksum, invalid charset, missing separator) is a
+    // backend data-quality bug, whereas a well-formed address that decodes to different
+    // bytes is a routing/security concern. Same error string for both makes them
+    // indistinguishable in operator logs.
     let backendRaw: Uint8Array | undefined;
+    let parseErr: string | undefined;
     try {
       backendRaw = fromBech32(info.address).data;
-    } catch {
-      backendRaw = undefined;
+    } catch (err) {
+      parseErr = (err as Error).message;
     }
-    if (!backendRaw || toHex(backendRaw) !== toHex(rawAddress)) {
+    if (!backendRaw) {
+      throw new Error(
+        `backend address '${info.address}' is not valid bech32 (${parseErr})`,
+      );
+    }
+    if (toHex(backendRaw) !== toHex(rawAddress)) {
       throw new Error(
         `backend address ${info.address} does not match pubkey-derived address ${derived}`,
       );
