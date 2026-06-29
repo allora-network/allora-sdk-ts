@@ -236,6 +236,21 @@ async function main() {
     granterAddress,
     "masterGranter is discovered from the backend's master_granter field",
   );
+  // A malformed master_granter (synth-004) must not be surfaced verbatim: an attacker-
+  // controlled / garbage value degrades to undefined rather than reaching fee.granter.
+  const badGranterSigner = await createWith(async () =>
+    okJson({
+      id: WALLET_ID,
+      address,
+      pubkey: toHex(pubkey),
+      master_granter: "not-a-bech32-address",
+    }),
+  );
+  assert.equal(
+    badGranterSigner.masterGranter,
+    undefined,
+    "an invalid master_granter is dropped, not surfaced verbatim",
+  );
 
   // A non-HTTPS backend is rejected unless allowInsecureHttp is set.
   await assert.rejects(

@@ -689,15 +689,29 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     // Capture the optional master fee-granter the backend advertised for this wallet. It
     // arrives under the snake_case wire key `master_granter`; parseForgeJson preserves
     // unknown keys, so it rides along on the parsed payload. The master granter is a
-    // discovery hint, not part of the wallet's identity, so a blank/absent value degrades
-    // gracefully to undefined ("no granter") rather than failing construction (and it is
-    // validated only when a caller assigns it to fee.granter). Parity with allora-sdk-go
-    // applyWalletInfo (rs.masterGranter = info.MasterGranter).
+    // discovery hint, not part of the wallet's identity, so a missing/blank/invalid value
+    // degrades gracefully to undefined ("no granter") rather than failing construction.
+    // Validate it is a canonical bech32 address with this wallet's prefix before surfacing
+    // it: a compromised or misconfigured backend could otherwise advertise an attacker-
+    // controlled or garbage string that a consumer assigns straight to fee.granter. The
+    // round-trip (decode then re-encode and compare) rejects a bad checksum, the wrong
+    // prefix, or non-canonical form. Defense-in-depth parity with allora-sdk-go's
+    // ResolveFeeGranter, which sdk.AccAddressFromBech32-parses the value (the chain still
+    // enforces the actual feegrant at broadcast, so this is not the sole gate).
     const granter: unknown =
       info.masterGranter ??
       (info as { master_granter?: unknown }).master_granter;
-    const masterGranter =
-      typeof granter === "string" && granter.length > 0 ? granter : undefined;
+    let masterGranter: string | undefined;
+    if (typeof granter === "string" && granter.length > 0) {
+      try {
+        const decoded = fromBech32(granter);
+        if (toBech32(prefix, decoded.data) === granter) {
+          masterGranter = granter;
+        }
+      } catch {
+        masterGranter = undefined;
+      }
+    }
     return new ForgeRemoteSigner(
       client,
       walletId,
