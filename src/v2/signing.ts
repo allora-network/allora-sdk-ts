@@ -541,7 +541,21 @@ class ForgeSigningWalletClient {
       // burns the account-sequence reservation). Reading the stream stops before an
       // oversized body is buffered whole; the AbortController timeout does not bound
       // memory on its own.
-      const text = await readBoundedBody(res, MAX_RESPONSE_BYTES);
+      let text: string;
+      try {
+        text = await readBoundedBody(res, MAX_RESPONSE_BYTES);
+      } catch (err) {
+        // If the response is itself an error (non-2xx) AND oversized, surface the status
+        // alongside the size-cap failure: otherwise an operator sees only "response
+        // exceeded N bytes" with no hint that the real problem is, e.g., a 502 serving a
+        // large captive-portal page rather than a valid reply.
+        if (!res.ok) {
+          throw new Error(
+            `Forge backend returned ${res.status} with an oversized response body: ${(err as Error).message}`,
+          );
+        }
+        throw err;
+      }
       if (!res.ok) {
         const preview = text.length > 512 ? `${text.slice(0, 512)}…` : text;
         throw new Error(`Forge backend returned ${res.status}: ${preview}`);
