@@ -539,7 +539,15 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     this.pubkeyHex = toHex(pubkey).toLowerCase();
   }
 
-  /** Create a signer, fetching the wallet's pubkey/address from the backend. */
+  /**
+   * Create a signer, fetching the wallet's pubkey/address from the backend.
+   *
+   * @throws {Error} If backendUrl/apiKey/walletId are missing; if walletId is not a UUID;
+   * if backendUrl is invalid (non-https without a loopback host + allowInsecureHttp,
+   * embedded userinfo, a query string or fragment, or no hostname); if timeoutMs is not a
+   * positive finite number; if the backend returns a non-2xx response; or if the wallet's
+   * pubkey-derived address does not match the address the backend reports.
+   */
   static async create(
     config: ForgeRemoteSignerConfig,
   ): Promise<ForgeRemoteSigner> {
@@ -563,6 +571,11 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
    * Idempotently get-or-create the user's managed wallet bound to topicId (ENGN-8572
    * "one worker = one topic") and build a signer for it. Safe to call on every worker
    * start: the backend enforces one wallet per (user, topic). No walletId is needed.
+   *
+   * @throws {Error} If backendUrl/apiKey are missing; if backendUrl is invalid; if
+   * timeoutMs is not a positive finite number; if topicId is not a positive safe integer
+   * (1 ≤ topicId ≤ 2^53-1); if the backend returns a non-2xx response; or if the
+   * provisioned wallet's pubkey-derived address does not match the backend's address.
    */
   static async provisionForTopic(
     config: Omit<ForgeRemoteSignerConfig, "walletId">,
@@ -651,6 +664,11 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
    * returned `signed` is the same object reference passed in as signDoc; do not
    * mutate it after this resolves, or the returned signature will no longer attest
    * to it (the chain would reject the tx with "signature verification failed").
+   *
+   * @throws {Error} If signerAddress does not match this signer; if the backend returns a
+   * non-2xx response; if the returned pubkey does not match the cached wallet pubkey; if
+   * the signature is not 64 bytes; or if local verification fails (wrong key, corrupted,
+   * or non-canonical high-S).
    */
   async signDirect(
     signerAddress: string,
@@ -679,6 +697,11 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
    * as-is (no Cosmos SHA-256 step). Use this for bundle/non-tx signatures; Cosmos
    * transactions go through signDirect. Mirrors allora-sdk-py's
    * RemoteSigner.sign_digest. Returns the raw 64-byte (r||s) signature.
+   *
+   * @throws {Error} If digest is not exactly 32 bytes; if the backend returns a non-2xx
+   * response; if the returned pubkey does not match the cached wallet pubkey; if the
+   * signature is not 64 bytes; or if local verification fails (wrong key, corrupted, or
+   * non-canonical high-S).
    */
   async signDigest(digest: Uint8Array): Promise<Uint8Array> {
     if (digest.length !== 32) {
@@ -691,7 +714,10 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
    * Release this wallet's topic binding on the Forge backend (Forge-side bookkeeping
    * only; does NOT unregister the worker on-chain). Convenience wrapper over
    * ForgeSigningWalletClient.clearAssociation for this signer's own wallet — call it before
-   * re-provisioning against a new topic or before decommission. Throws on a non-2xx response.
+   * re-provisioning against a new topic or before decommission.
+   *
+   * @throws {Error} If the backend returns a non-2xx response (e.g. 404 for an unknown,
+   * foreign, or already-cleared wallet).
    */
   async clearAssociation(): Promise<void> {
     await this.client.clearAssociation(this.walletId);
