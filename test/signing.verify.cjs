@@ -162,6 +162,38 @@ async function main() {
       allowInsecureHttp: true,
     });
 
+  // --- masterGranter discovery (synth-003) ----------------------------------
+  // The signer surfaces the backend's snake_case `master_granter` wire key as
+  // signer.masterGranter, so a caller can do
+  //   fee.granter = signer.masterGranter ?? process.env.FORGE_MASTER_GRANTER_ADDRESS
+  // It is undefined when the backend advertises none (the main signer's GET omits it).
+  assert.equal(
+    signer.masterGranter,
+    undefined,
+    "masterGranter is undefined when the backend advertises none",
+  );
+  const granterAddress = toBech32(
+    "allo",
+    rawSecp256k1PubkeyToRawAddress(
+      Secp256k1.compressPubkey(
+        (await Secp256k1.makeKeypair(fromHex("cc".repeat(32)))).pubkey,
+      ),
+    ),
+  );
+  const granterSigner = await createWith(async () =>
+    okJson({
+      id: WALLET_ID,
+      address,
+      pubkey: toHex(pubkey),
+      master_granter: granterAddress,
+    }),
+  );
+  assert.equal(
+    granterSigner.masterGranter,
+    granterAddress,
+    "masterGranter is discovered from the backend's master_granter field",
+  );
+
   // A non-HTTPS backend is rejected unless allowInsecureHttp is set.
   await assert.rejects(
     () =>

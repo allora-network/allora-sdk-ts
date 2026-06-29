@@ -65,6 +65,12 @@ export interface SigningWalletInfo {
   address: string;
   /** Hex-encoded 33-byte compressed secp256k1 public key. */
   pubkey: string;
+  /** Master fee-granter (allo1…) the backend advertises for this wallet, when a master
+   * wallet is configured (omitted otherwise). Mapped from the backend's snake_case JSON
+   * field `master_granter`; surfaced on the signer as {@link ForgeRemoteSigner.masterGranter}
+   * so a worker can discover the granter at runtime instead of configuring it out-of-band,
+   * making a master-wallet rotation transparent. */
+  masterGranter?: string;
 }
 
 export interface ForgeRemoteSignerConfig {
@@ -546,6 +552,7 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
     private readonly walletId: string,
     private readonly accountAddress: string,
     private readonly pubkey: Uint8Array,
+    private readonly masterGranterAddress?: string,
   ) {
     this.pubkeyHex = toHex(pubkey).toLowerCase();
   }
@@ -650,12 +657,49 @@ export class ForgeRemoteSigner implements OfflineDirectSigner {
         `backend address ${info.address} does not match pubkey-derived address ${derived}`,
       );
     }
-    return new ForgeRemoteSigner(client, walletId, derived, pubkey);
+    // Capture the optional master fee-granter the backend advertised for this wallet. It
+    // arrives under the snake_case wire key `master_granter`; parseForgeJson preserves
+    // unknown keys, so it rides along on the parsed payload. The master granter is a
+    // discovery hint, not part of the wallet's identity, so a blank/absent value degrades
+    // gracefully to undefined ("no granter") rather than failing construction (and it is
+    // validated only when a caller assigns it to fee.granter). Parity with allora-sdk-go
+    // applyWalletInfo (rs.masterGranter = info.MasterGranter).
+    const granter: unknown =
+      info.masterGranter ??
+      (info as { master_granter?: unknown }).master_granter;
+    const masterGranter =
+      typeof granter === "string" && granter.length > 0 ? granter : undefined;
+    return new ForgeRemoteSigner(
+      client,
+      walletId,
+      derived,
+      pubkey,
+      masterGranter,
+    );
   }
 
   /** The signer's bech32 account address (prefix defaults to "allo"). */
   get address(): string {
     return this.accountAddress;
+  }
+
+  /**
+   * The master fee-granter (allo1…) the Forge backend advertised for this wallet at
+   * construction, or undefined when it advertises none. forge-v2 auto-creates a feegrant
+   * from this granter to each new signing wallet, so a worker can subsidize its gas without
+   * holding any ALLO. It is discovered at runtime from the wallet-info/provision response
+   * (the `master_granter` field), so a master-wallet rotation does not force consumers to
+   * reconfigure.
+   *
+   * Precedence — prefer the discovered value, with the canonical
+   * `FORGE_MASTER_GRANTER_ADDRESS` env var as the override/fallback:
+   *
+   *   fee.granter = signer.masterGranter ?? process.env.FORGE_MASTER_GRANTER_ADDRESS;
+   *
+   * Leave `fee.granter` unset to have the signing wallet pay its own gas.
+   */
+  get masterGranter(): string | undefined {
+    return this.masterGranterAddress;
   }
 
   async getAccounts(): Promise<readonly AccountData[]> {

@@ -58,23 +58,29 @@ const signer = await ForgeRemoteSigner.create({
 const client = await SigningStargateClient.connectWithSigner(rpcUrl, signer)
 
 // To subsidize gas via the Forge master feegrant, set `fee.granter` to the master
-// wallet's allo1… address (obtain it from your Forge admin / backend config). Omit
-// `granter` to pay gas from the signing wallet itself.
+// wallet's allo1… address. The signer discovers it at runtime from the backend and
+// exposes it as `signer.masterGranter`; prefer that, falling back to the canonical
+// `FORGE_MASTER_GRANTER_ADDRESS` env var. Omit `granter` to pay gas from the signing
+// wallet itself.
 const fee = {
   amount: [{ denom: 'uallo', amount: '2000' }],
   gas: '200000',
-  granter: process.env.FORGE_MASTER_GRANTER_ADDRESS, // allo1… master wallet
+  // Discovered value preferred, env var as override/fallback.
+  granter: signer.masterGranter ?? process.env.FORGE_MASTER_GRANTER_ADDRESS,
 }
 await client.signAndBroadcast(signer.address, msgs, fee)
 ```
 
-> **Fee-granter env var name:** `FORGE_MASTER_GRANTER_ADDRESS` is the canonical
-> name for the master fee-granter address across the Allora SDKs (Python, TS, Go).
-> This SDK does not read it directly — pass the value to `fee.granter` as shown
-> above — but using the same variable name keeps TS, Python, and Go workers that
-> target the same Forge tenant configured consistently. (The Python SDK still
-> accepts the former name `FEE_GRANTER` for one release, with a deprecation
-> warning.)
+> **Fee-granter discovery & env var:** `signer.masterGranter` exposes the master
+> fee-granter (allo1…) the Forge backend advertises for the wallet, discovered at
+> runtime from the wallet-info/provision response (the `master_granter` field), so a
+> master-wallet rotation needs no reconfiguration. `FORGE_MASTER_GRANTER_ADDRESS` is the
+> canonical env-var name for the granter across the Allora SDKs (Python, TS, Go); this
+> SDK does not read it directly — apply it yourself as the override/fallback shown above
+> (`signer.masterGranter ?? process.env.FORGE_MASTER_GRANTER_ADDRESS`). Using the same
+> variable name keeps TS, Python, and Go workers that target the same Forge tenant
+> configured consistently. (The Python SDK still accepts the former name `FEE_GRANTER`
+> for one release, with a deprecation warning.)
 
 > **Node version:** the `./signing` subpath pulls in cosmjs, whose `@noble/*` v2
 > dependencies are ESM-only. CommonJS (`require()`) consumers therefore need Node
