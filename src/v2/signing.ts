@@ -161,6 +161,23 @@ async function readBoundedBody(
   return new TextDecoder().decode(concatChunks(chunks, total));
 }
 
+/** Report whether a URL hostname is a loopback address, so the allowInsecureHttp
+ * escape hatch can be bounded to local development: cleartext http:// is tolerated
+ * only for these hosts, never for a public endpoint that would leak the
+ * X-Forge-API-Key over the wire. Mirrors allora-sdk-go's isLoopbackHost guard. The
+ * 127/8 match is a strict dotted-quad so a hostile name like "127.evil.com" is not
+ * treated as loopback; new URL() lowercases the hostname, so no case-folding is
+ * needed. IPv6 loopback arrives bracketed from URL.hostname ("[::1]"). */
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "0.0.0.0" ||
+    hostname === "::1" ||
+    hostname === "[::1]" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  );
+}
+
 /**
  * HTTP client for the Forge signing-wallet API.
  *
@@ -179,14 +196,24 @@ class ForgeSigningWalletClient {
     allowInsecureHttp = false,
     private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
-    // Reject non-HTTPS backends: the Forge API key authorises on-chain signing,
-    // so it must never travel in cleartext. allowInsecureHttp opts out for local
-    // testing against http:// backends.
+    // Reject non-HTTPS backends: the Forge API key authorises on-chain signing, so it
+    // must never travel in cleartext. allowInsecureHttp opts out only for loopback
+    // hosts (local testing/dev) and only for the http: scheme — it must never downgrade
+    // a public endpoint to cleartext or wave through some other scheme, either of which
+    // would leak the signing credential. Parity with allora-sdk-go's isLoopbackHost guard.
     const parsed = new URL(baseUrl);
-    if (parsed.protocol !== "https:" && !allowInsecureHttp) {
-      throw new Error(
-        `backendUrl must use https:// (got "${parsed.protocol}//"); set allowInsecureHttp to override`,
-      );
+    if (parsed.protocol !== "https:") {
+      const loopbackHttpOk =
+        parsed.protocol === "http:" &&
+        allowInsecureHttp &&
+        isLoopbackHost(parsed.hostname);
+      if (!loopbackHttpOk) {
+        throw new Error(
+          `backendUrl must use https:// (got "${parsed.protocol}//"); ` +
+            `cleartext http is only permitted for loopback hosts ` +
+            `(localhost, 127.0.0.0/8, ::1) with allowInsecureHttp set`,
+        );
+      }
     }
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     // Bind the global fetch to its receiver: WHATWG fetch throws "Illegal

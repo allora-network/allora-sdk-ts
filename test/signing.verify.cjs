@@ -47,7 +47,7 @@ async function main() {
   };
 
   const signer = await ForgeRemoteSigner.create({
-    backendUrl: "http://forge.test",
+    backendUrl: "http://localhost",
     apiKey: "forge_sk_test",
     walletId: "w",
     fetchFn,
@@ -92,7 +92,7 @@ async function main() {
     return { ok: true, status: 200, text: async () => walletInfo() };
   };
   const clearSigner = await ForgeRemoteSigner.create({
-    backendUrl: "http://forge.test",
+    backendUrl: "http://localhost",
     apiKey: "forge_sk_test",
     walletId: "w",
     fetchFn: clearFetch,
@@ -101,7 +101,7 @@ async function main() {
   await clearSigner.clearAssociation();
   assert.equal(
     clearedPath,
-    "http://forge.test/api/v1/signing-wallets/w/clear-association",
+    "http://localhost/api/v1/signing-wallets/w/clear-association",
     "clearAssociation must POST to the wallet's clear-association path",
   );
 
@@ -113,7 +113,7 @@ async function main() {
     return { ok: true, status: 200, text: async () => walletInfo() };
   };
   const clearFailSigner = await ForgeRemoteSigner.create({
-    backendUrl: "http://forge.test",
+    backendUrl: "http://localhost",
     apiKey: "forge_sk_test",
     walletId: "w",
     fetchFn: clearFailFetch,
@@ -131,7 +131,7 @@ async function main() {
   await assert.rejects(
     () =>
       ForgeRemoteSigner.create({
-        backendUrl: "http://forge.test",
+        backendUrl: "http://localhost",
         apiKey: "k",
         walletId: "w",
         fetchFn: badFetch,
@@ -149,7 +149,7 @@ async function main() {
   });
   const createWith = (walletFetch, apiKey = "k") =>
     ForgeRemoteSigner.create({
-      backendUrl: "http://forge.test",
+      backendUrl: "http://localhost",
       apiKey,
       walletId: "w",
       fetchFn: walletFetch,
@@ -160,10 +160,24 @@ async function main() {
   await assert.rejects(
     () =>
       ForgeRemoteSigner.create({
+        backendUrl: "http://localhost",
+        apiKey: "k",
+        walletId: "w",
+        fetchFn,
+      }),
+    /must use https/,
+  );
+
+  // allowInsecureHttp only relaxes the https requirement for loopback hosts: a public
+  // http endpoint must still be rejected so the API key never travels in cleartext.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
         backendUrl: "http://forge.test",
         apiKey: "k",
         walletId: "w",
         fetchFn,
+        allowInsecureHttp: true,
       }),
     /must use https/,
   );
@@ -352,7 +366,7 @@ async function main() {
     () =>
       ForgeRemoteSigner.provisionForTopic(
         {
-          backendUrl: "http://forge.test",
+          backendUrl: "http://localhost",
           apiKey: "k",
           fetchFn,
           allowInsecureHttp: true,
