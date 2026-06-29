@@ -196,12 +196,34 @@ class ForgeSigningWalletClient {
     allowInsecureHttp = false,
     private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
+    const parsed = new URL(baseUrl);
+    // Reject embedded credentials, query strings, and fragments, and require a hostname.
+    // Userinfo (user:pass@host) would be sent as HTTP Basic Auth on every request
+    // alongside the X-Forge-API-Key and would leak into fetch error strings/operator
+    // logs on any transient failure; a query string or fragment would corrupt every
+    // request path. Parity with allora-sdk-go's backendUrl validation.
+    if (parsed.username || parsed.password) {
+      throw new Error(
+        "backendUrl must not contain embedded userinfo (user:pass@); " +
+          "it would be sent as Basic Auth on every request",
+      );
+    }
+    if (parsed.search || parsed.hash) {
+      throw new Error(
+        "backendUrl must not contain a query string or fragment; " +
+          "it would corrupt every request path",
+      );
+    }
+    if (!parsed.hostname) {
+      throw new Error(
+        "backendUrl must be an absolute http(s) URL with a hostname",
+      );
+    }
     // Reject non-HTTPS backends: the Forge API key authorises on-chain signing, so it
     // must never travel in cleartext. allowInsecureHttp opts out only for loopback
     // hosts (local testing/dev) and only for the http: scheme — it must never downgrade
     // a public endpoint to cleartext or wave through some other scheme, either of which
     // would leak the signing credential. Parity with allora-sdk-go's isLoopbackHost guard.
-    const parsed = new URL(baseUrl);
     if (parsed.protocol !== "https:") {
       const loopbackHttpOk =
         parsed.protocol === "http:" &&

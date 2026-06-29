@@ -182,6 +182,41 @@ async function main() {
     /must use https/,
   );
 
+  // Embedded userinfo must be rejected: fetch would send it as Basic Auth on every
+  // request alongside the API key and leak it into error strings/operator logs.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "https://user:pass@forge.allora.network",
+        apiKey: "k",
+        walletId: "w",
+        fetchFn,
+      }),
+    /embedded userinfo/,
+  );
+
+  // A query string or fragment would corrupt every request path and must be rejected.
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "https://forge.allora.network/?token=abc",
+        apiKey: "k",
+        walletId: "w",
+        fetchFn,
+      }),
+    /query string or fragment/,
+  );
+  await assert.rejects(
+    () =>
+      ForgeRemoteSigner.create({
+        backendUrl: "https://forge.allora.network/#frag",
+        apiKey: "k",
+        walletId: "w",
+        fetchFn,
+      }),
+    /query string or fragment/,
+  );
+
   // An empty wallet-info id must fail closed: it cannot bind the response to the
   // requested wallet, so a mis-routed/cache-poisoned response is not accepted.
   await assert.rejects(
