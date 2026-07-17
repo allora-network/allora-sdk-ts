@@ -71,6 +71,13 @@ const fee = {
 await client.signAndBroadcast(signer.address, msgs, fee)
 ```
 
+> **Security boundary:** `FORGE_API_KEY` is a managed-wallet signing credential, not a
+> transaction-scoped permission. `ForgeRemoteSigner` can send arbitrary SignDoc bytes and
+> 32-byte digests to Forge, so possession of the key authorizes any transaction the managed
+> wallet can sign. Disabling Forge's optional `/transfer` convenience route does not prevent a
+> caller from building, signing, and broadcasting a transfer through `/sign`. Store, rotate, and
+> revoke this API key with the same care as a private wallet key.
+
 > **Fee-granter discovery & env var:** `signer.masterGranter` exposes the master
 > fee-granter (allo1…) the Forge backend advertises for the wallet, discovered at
 > runtime from the wallet-info/provision response (the `master_granter` field), so a
