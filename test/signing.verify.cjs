@@ -15,15 +15,60 @@ const { Secp256k1, Secp256k1Signature, sha256 } = require("@cosmjs/crypto");
 const { fromBase64, fromHex, toBech32, toHex } = require("@cosmjs/encoding");
 const { rawSecp256k1PubkeyToRawAddress } = require("@cosmjs/amino");
 const { makeSignBytes } = require("@cosmjs/proto-signing");
-const { ForgeRemoteSigner } = require("../dist/src/v2/signing.js");
+const {
+  ForgeRemoteSigner,
+  resolveForgeFeeGranter,
+} = require("../dist/src/v2/signing.js");
 
 async function main() {
   const privkey = fromHex("aa".repeat(32));
   const keypair = await Secp256k1.makeKeypair(privkey);
   const pubkey = Secp256k1.compressPubkey(keypair.pubkey);
   const address = toBech32("allo", rawSecp256k1PubkeyToRawAddress(pubkey));
+  const canonicalOverride = toBech32(
+    "allo",
+    rawSecp256k1PubkeyToRawAddress(
+      Secp256k1.compressPubkey(
+        (await Secp256k1.makeKeypair(fromHex("bb".repeat(32)))).pubkey,
+      ),
+    ),
+  );
   // walletId must be a UUID (the SDK validates its shape at construction).
   const WALLET_ID = "11111111-1111-4111-8111-111111111111";
+
+  // --- fee-granter env compatibility ---------------------------------------
+  const warnings = [];
+  assert.equal(
+    resolveForgeFeeGranter({ FEE_GRANTER: address }, undefined, (message) =>
+      warnings.push(message),
+    ),
+    address,
+  );
+  assert.equal(warnings.length, 1, "legacy alias must emit one warning");
+  assert.equal(
+    resolveForgeFeeGranter(
+      {
+        FORGE_MASTER_GRANTER_ADDRESS: canonicalOverride,
+        FEE_GRANTER: address,
+      },
+      address,
+      (message) => warnings.push(message),
+    ),
+    canonicalOverride,
+    "canonical env var must take precedence",
+  );
+  assert.equal(warnings.length, 1, "canonical precedence must not warn");
+  assert.equal(resolveForgeFeeGranter({}, address), address);
+  assert.throws(
+    () =>
+      resolveForgeFeeGranter({
+        FORGE_MASTER_GRANTER_ADDRESS: toBech32(
+          "cosmos",
+          rawSecp256k1PubkeyToRawAddress(pubkey),
+        ),
+      }),
+    /canonical allo bech32/,
+  );
 
   // Fake Forge backend: GET returns wallet info; POST signs with the local key.
   const fetchFn = async (_url, init) => {

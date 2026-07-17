@@ -93,6 +93,46 @@ export interface ForgeRemoteSignerConfig {
   timeoutMs?: number;
 }
 
+/**
+ * Resolve the fee-granter override shared by the Allora SDKs.
+ *
+ * `FORGE_MASTER_GRANTER_ADDRESS` is canonical. `FEE_GRANTER` remains a deprecated fallback for
+ * the same one-release compatibility window as the Python and Go SDKs; callers can inject a
+ * warning sink for structured logging. The environment object is explicit so this helper remains
+ * usable in browsers and other runtimes without assuming a global `process`.
+ */
+export function resolveForgeFeeGranter(
+  env: Readonly<Record<string, string | undefined>>,
+  discovered?: string,
+  warn: (message: string) => void = console.warn,
+): string | undefined {
+  const canonical = env.FORGE_MASTER_GRANTER_ADDRESS?.trim();
+  const legacy = env.FEE_GRANTER?.trim();
+  let candidate = canonical;
+  if (!candidate && legacy) {
+    candidate = legacy;
+    warn(
+      "FEE_GRANTER is deprecated; rename it to FORGE_MASTER_GRANTER_ADDRESS",
+    );
+  }
+  if (!candidate) return discovered;
+
+  try {
+    const decoded = fromBech32(candidate);
+    if (
+      decoded.prefix !== DEFAULT_PREFIX ||
+      toBech32(decoded.prefix, decoded.data) !== candidate
+    ) {
+      throw new Error("non-canonical address");
+    }
+  } catch {
+    throw new Error(
+      "fee granter must be a canonical allo bech32 address from FORGE_MASTER_GRANTER_ADDRESS (or deprecated FEE_GRANTER)",
+    );
+  }
+  return candidate;
+}
+
 /** JSON.parse with Forge context, so a non-JSON backend/proxy response (an HTML
  * error page, a plain-text 401) surfaces an actionable error instead of an opaque
  * SyntaxError with no indication it came from the Forge SDK. */

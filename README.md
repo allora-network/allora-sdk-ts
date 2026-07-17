@@ -45,7 +45,10 @@ npm install @cosmjs/amino @cosmjs/crypto @cosmjs/encoding @cosmjs/proto-signing 
 ```
 
 ```typescript
-import { ForgeRemoteSigner } from '@alloralabs/allora-sdk/signing'
+import {
+  ForgeRemoteSigner,
+  resolveForgeFeeGranter,
+} from '@alloralabs/allora-sdk/signing'
 import { SigningStargateClient } from '@cosmjs/stargate'
 
 // walletId + apiKey are minted in the Forge web app.
@@ -66,7 +69,7 @@ const fee = {
   amount: [{ denom: 'uallo', amount: '2000' }],
   gas: '200000',
   // Env var override preferred, backend-discovered value as fallback.
-  granter: process.env.FORGE_MASTER_GRANTER_ADDRESS ?? signer.masterGranter,
+  granter: resolveForgeFeeGranter(process.env, signer.masterGranter),
 }
 await client.signAndBroadcast(signer.address, msgs, fee)
 ```
@@ -82,13 +85,11 @@ await client.signAndBroadcast(signer.address, msgs, fee)
 > fee-granter (allo1…) the Forge backend advertises for the wallet, discovered at
 > runtime from the wallet-info/provision response (the `master_granter` field), so a
 > master-wallet rotation needs no reconfiguration. `FORGE_MASTER_GRANTER_ADDRESS` is the
-> canonical env-var name for the granter across the Allora SDKs (Python, TS, Go); this
-> SDK does not read it directly — apply it yourself, preferring the explicit env override
-> and falling back to the discovered value as shown above
-> (`process.env.FORGE_MASTER_GRANTER_ADDRESS ?? signer.masterGranter`). Resolving
-> env-first matches the Go and Python SDKs and keeps workers that target the same Forge
-> tenant configured consistently. (The Python SDK still accepts the former name
-> `FEE_GRANTER` for one release, with a deprecation warning.)
+> canonical env-var name for the granter across the Allora SDKs (Python, TS, Go).
+> `resolveForgeFeeGranter(process.env, signer.masterGranter)` applies the shared
+> env-first precedence and validates the address. For the same one-release migration
+> window as Python and Go, it accepts the former `FEE_GRANTER` name as a fallback and
+> emits a deprecation warning.
 
 > **Node version:** the `./signing` subpath pulls in cosmjs, whose `@noble/*` v2
 > dependencies are ESM-only. CommonJS (`require()`) consumers therefore need Node
