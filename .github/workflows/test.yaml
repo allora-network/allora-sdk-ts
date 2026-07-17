@@ -12,14 +12,18 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18.x]
+        # Include 18.x: package.json engines.node is >=18 and the data-only entrypoint
+        # (@alloralabs/allora-sdk/v2) supports it, so the unit/integration suite must be
+        # exercised on Node 18 too. The signing verification step below is skipped on 18
+        # because the ./signing subpath needs >=20.19 (require(ESM) for cosmjs's @noble deps).
+        node-version: [18.x, 20.x, 22.x]
         test-type: ['unit', 'integration']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'yarn'
@@ -39,3 +43,46 @@ jobs:
       run: yarn test:integration
       env:
         ALLORA_API_KEY: ${{ secrets.ALLORA_TEST_API_KEY }}
+
+    # Also run the signing verification (test/signing.verify.cjs) in the main test job so
+    # the jest suite and signing checks are exercised together — signing.ts is otherwise
+    # untouched by `yarn test` (jest can't load cosmjs's ESM-only deps). Guarded to the
+    # 'unit' leg so it runs once per Node version, not once per test-type, and skipped on
+    # Node 18 (the signing subpath requires >=20.19 for require(ESM) of cosmjs's @noble
+    # deps). The dedicated signing job below additionally pins the exact require(ESM) floor.
+    - name: Run signing verification
+      if: matrix.test-type == 'unit' && matrix.node-version != '18.x'
+      run: yarn test:signing
+
+  signing:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        # Pin to the exact require(ESM) floor for the signing subpath (>=20.19.0,
+        # where require(ESM) works for the ESM-only @noble/* deps) so the documented
+        # contract is actually exercised — 20.x would silently resolve to a newer patch.
+        # (Package-wide engines.node is >=18, the floor for the data-only entrypoint
+        # and for ESM `import` of ./signing.)
+        node-version: [20.19.0, 22.12.0]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+
+    - name: Install yarn via corepack
+      run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+    - name: Install dependencies with yarn
+      run: yarn install
+
+    # The signing verification is a standalone Node script (test/signing.verify.cjs):
+    # jest/ts-jest cannot transpile cosmjs's ESM-only @noble deps, so it is not picked
+    # up by `yarn test`. Run it explicitly so signing regressions are caught in CI.
+    - name: Run signing verification
+      run: yarn test:signing
