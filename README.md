@@ -1,31 +1,81 @@
 # Allora SDK
 
+TypeScript client for the Allora **Forge API Gateway** (topics + network inferences).
+
+Published as [`@alloralabs/allora-sdk`](https://www.npmjs.com/package/@alloralabs/allora-sdk).
+
 ### Installation
+
 ```
 npm install @alloralabs/allora-sdk
 ```
 
+### Breaking changes (Forge migration)
+
+This release replaces the legacy Upshot `/v2` client:
+
+| Before | After |
+|--------|--------|
+| Optional embedded `UP-…` key | **Required** `forge_sk_…` from the [Developer Portal](https://developer.allora.network) |
+| `https://api.upshot.xyz/v2` | Gateway `https://api.developer.allora.network` |
+| Cosmos `ChainID` in paths | Network path segment: `testnet` \| `mainnet` \| `offchain` (default **mainnet**) |
+| Header `x-api-key` | `Authorization: Bearer …` |
+| `getAllTopics` followed Upshot `continuation_token` pagination | Gateway returns the catalog in one response |
+| `getPriceInference(asset, timeframe)` | **Removed** — the Forge gateway has no price-by-asset endpoint. Use `getInferenceByTopicID(knownTopicId)` instead (see migration below) |
+| `getInferenceByTopicID` defaulted `signatureFormat` to Sepolia | No default — `evm_chain_id` is sent only if you pass `signatureFormat` |
+
+**Unchanged:** public TypeScript shapes `AlloraTopic`, `AlloraInference`, and `AlloraInferenceData` (including nested `inference.inference_data.network_inference_normalized`), and the core signatures of `getAllTopics` and `getInferenceByTopicID`.
+
+Topic fields the gateway does not return (`worker_count`, stakes, `is_active`, `updated_at`, …) stay at zero / `null` / `""` — they are not invented.
+
+#### Migrating off `getPriceInference`
+
+The Forge gateway exposes topics by id, not by asset/timeframe. To replace a `getPriceInference(BTC, "5m")` call:
+
+1. Browse the catalog once: `const topics = await client.getAllTopics();`
+2. Pick the topic id whose `topic_name` matches your asset/timeframe (e.g. `"BTC 5min"`)
+3. Fetch its inference: `await client.getInferenceByTopicID(topicId)`
+
 ### Usage
 
 ```typescript
-import { AlloraAPIClient } from '@alloralabs/allora-sdk/v2'
+import { AlloraAPIClient, ChainSlug } from '@alloralabs/allora-sdk'
 
 const alloraClient = new AlloraAPIClient({
-    chainSlug: ChainSlug.TESTNET,
-    apiKey: 'UP-8cbc632a67a84ac1b4078661', // Optional
-  });
+  apiKey: process.env.ALLORA_API_KEY!, // forge_sk_…
+  chainSlug: ChainSlug.MAINNET,       // optional; default mainnet
+  // baseAPIUrl — optional gateway override
+});
 
-// Examples:
-
-// Fetch Allora topics
+// Topics (gateway catalog; no inference attached)
 const topics = await alloraClient.getAllTopics();
+if (topics.length === 0) {
+  throw new Error('no topics');
+}
 
-// Fetch topic inference by ID
-const ethPrice5m = await  alloraClient.getInferenceByTopicID(3);
+// Nested inference — same field path as before
+const inference = await alloraClient.getInferenceByTopicID(topics[0].topic_id);
+const price = inference.inference_data.network_inference_normalized;
+console.log({ price, signature: inference.signature });
 
-// Fetch asset price inference
-const btc8h = await alloraClient.getPriceInference(
-  PriceInferenceToken.BTC,
-  PriceInferenceTimeframe.EIGHT_HOURS
-);
+// Optional: request a consumer signature for a specific EVM chain
+// (ethereum-11155111 → evm_chain_id=11155111). Omitted by default.
+// const signed = await alloraClient.getInferenceByTopicID(
+//   topics[0].topic_id,
+//   SignatureFormat.ETHEREUM_SEPOLIA,
+// );
+```
+
+### Environment variables
+
+```bash
+ALLORA_API_KEY=forge_sk_…
+ALLORA_API_BASE_URL=…   # optional gateway override
+```
+
+### Tests
+
+```bash
+yarn test:unit
+ALLORA_API_KEY=forge_sk_… yarn test:integration
 ```
