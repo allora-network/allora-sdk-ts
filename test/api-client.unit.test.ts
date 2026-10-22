@@ -16,12 +16,14 @@ const TEST_KEY = "forge_sk_test_key_123";
 
 function jsonResponse(body: unknown, status = 200) {
   const text = JSON.stringify(body);
-  return {
-    ok: status === 200,
+  const bytes = new TextEncoder().encode(text);
+  return new Response(text, {
     status,
-    headers: new Headers({ "content-length": String(text.length) }),
-    text: () => Promise.resolve(text),
-  };
+    headers: {
+      "content-type": "application/json",
+      "content-length": String(bytes.byteLength),
+    },
+  });
 }
 
 describe("AlloraAPIClient Unit Tests", () => {
@@ -50,6 +52,15 @@ describe("AlloraAPIClient Unit Tests", () => {
       );
     });
 
+    it("rejects undefined key at runtime", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: undefined as unknown as string,
+          }),
+      ).toThrow(/ALLORA_API_KEY is required/);
+    });
+
     it("rejects legacy UP- keys", () => {
       expect(
         () => new AlloraAPIClient({ apiKey: "UP-8cbc632a67a84ac1b4078661" }),
@@ -57,9 +68,34 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
 
     it("defaults to gateway + mainnet", () => {
-      const c = new AlloraAPIClient({ apiKey: TEST_KEY });
-      expect(c["baseAPIUrl"]).toBe(DefaultAPIBaseURL);
-      expect(c["network"]).toBe(ChainSlug.MAINNET);
+      const prev = process.env.ALLORA_API_BASE_URL;
+      delete process.env.ALLORA_API_BASE_URL;
+      try {
+        const c = new AlloraAPIClient({ apiKey: TEST_KEY });
+        expect(c["baseAPIUrl"]).toBe(DefaultAPIBaseURL);
+        expect(c["network"]).toBe(ChainSlug.MAINNET);
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ALLORA_API_BASE_URL;
+        } else {
+          process.env.ALLORA_API_BASE_URL = prev;
+        }
+      }
+    });
+
+    it("reads ALLORA_API_BASE_URL when baseAPIUrl omitted", () => {
+      const prev = process.env.ALLORA_API_BASE_URL;
+      process.env.ALLORA_API_BASE_URL = "https://env-gateway.example/";
+      try {
+        const c = new AlloraAPIClient({ apiKey: TEST_KEY });
+        expect(c["baseAPIUrl"]).toBe("https://env-gateway.example");
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ALLORA_API_BASE_URL;
+        } else {
+          process.env.ALLORA_API_BASE_URL = prev;
+        }
+      }
     });
 
     it("accepts overrides and testnet", () => {
@@ -125,7 +161,8 @@ describe("AlloraAPIClient Unit Tests", () => {
         "66781380725120668592",
       );
       expect(inference.inference_data.topic_id).toBe("72");
-      expect(inference.inference_data.timestamp).toBe(1784025644244);
+      // Legacy timestamp is Unix seconds (timestamp_ms / 1000).
+      expect(inference.inference_data.timestamp).toBe(1784025644);
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://gateway.test/testnet/inference/72",
@@ -212,13 +249,23 @@ describe("AlloraAPIClient Unit Tests", () => {
       expect(legacy.inference_data.network_inference_normalized).toBe("");
     });
 
-    it("uses timestamp seconds × 1000 when timestamp_ms missing", () => {
+    it("uses gateway timestamp seconds when timestamp_ms missing", () => {
       const legacy = networkInferenceToLegacy({
         topic_id: 1,
         timestamp: 1000,
         network_inference_normalized: "1.0",
       });
-      expect(legacy.inference_data.timestamp).toBe(1_000_000);
+      expect(legacy.inference_data.timestamp).toBe(1000);
+    });
+
+    it("converts timestamp_ms to Unix seconds", () => {
+      const legacy = networkInferenceToLegacy({
+        topic_id: 1,
+        timestamp_ms: 1_700_000_000_123,
+        timestamp: 1,
+        network_inference_normalized: "1.0",
+      });
+      expect(legacy.inference_data.timestamp).toBe(1_700_000_000);
     });
   });
 });

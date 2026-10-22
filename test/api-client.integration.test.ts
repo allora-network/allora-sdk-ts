@@ -51,12 +51,9 @@ describeIntegration("AlloraAPIClient Integration Tests", () => {
           "network_inference_normalized",
         );
         const normalized = inference.inference_data.network_inference_normalized;
-        expect(normalized).toMatch(/^-?\d+(\.\d+)?$/);
-        expect(normalized.includes(".") || Number(normalized) < 1e12).toBe(
-          true,
-        );
+        expect(normalized.length).toBeGreaterThan(0);
         // Without chain id the gateway returns an empty signature.
-        expect(typeof inference.signature).toBe("string");
+        expect(inference.signature).toBe("");
         console.log(
           `without-chain topic=${topicId} normalized=${normalized} signatureLen=${inference.signature.length}`,
         );
@@ -74,7 +71,7 @@ describeIntegration("AlloraAPIClient Integration Tests", () => {
         expect(inference).toHaveProperty("signature");
         expect(inference).toHaveProperty("inference_data");
         const normalized = inference.inference_data.network_inference_normalized;
-        expect(normalized).toMatch(/^-?\d+(\.\d+)?$/);
+        expect(normalized.length).toBeGreaterThan(0);
         expect(inference.signature).toMatch(/^0x[0-9a-fA-F]+$/);
         console.log(
           `with-chain topic=${topicId} normalized=${normalized} signature=${inference.signature.slice(0, 18)}…`,

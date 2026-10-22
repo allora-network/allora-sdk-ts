@@ -89,13 +89,15 @@ function resolveNormalized(ni: NetworkInference): string {
     || singleLabeledValue(ni.combined_value);
 }
 
-/** Epoch millis: `timestamp_ms` if set, else `timestamp` (seconds) × 1000. */
+/**
+ * Legacy `inference_data.timestamp` is Unix seconds.
+ * Prefer `timestamp_ms` (convert ms → s); else use gateway `timestamp` as-is.
+ */
 function resolveTimestamp(ni: NetworkInference): number {
-  let ts = ni.timestamp_ms ?? 0;
-  if (ts === 0 && (ni.timestamp ?? 0) > 0) {
-    ts = ni.timestamp! * 1000;
+  if ((ni.timestamp_ms ?? 0) > 0) {
+    return Math.floor(ni.timestamp_ms! / 1000);
   }
-  return ts;
+  return ni.timestamp ?? 0;
 }
 
 /**

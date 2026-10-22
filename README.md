@@ -39,12 +39,17 @@ The Forge gateway exposes topics by id, not by asset/timeframe. To replace a `ge
 ### Usage
 
 ```typescript
-import { AlloraAPIClient, ChainSlug } from '@alloralabs/allora-sdk'
+import {
+  AlloraAPIClient,
+  ChainSlug,
+  SignatureFormat,
+} from '@alloralabs/allora-sdk'
 
 const alloraClient = new AlloraAPIClient({
   apiKey: process.env.ALLORA_API_KEY!, // forge_sk_…
   chainSlug: ChainSlug.MAINNET,       // optional; default mainnet
-  // baseAPIUrl — optional gateway override
+  // Or set ALLORA_API_BASE_URL — read automatically when baseAPIUrl is omitted
+  // baseAPIUrl: process.env.ALLORA_API_BASE_URL,
 });
 
 // Topics (gateway catalog; no inference attached)
@@ -70,7 +75,8 @@ console.log({ price, signature: inference.signature });
 
 ```bash
 ALLORA_API_KEY=forge_sk_…
-ALLORA_API_BASE_URL=…   # optional gateway override
+# Optional — used when `baseAPIUrl` is omitted from the constructor:
+ALLORA_API_BASE_URL=…
 ```
 
 ### Tests

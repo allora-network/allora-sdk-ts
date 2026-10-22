@@ -1,4 +1,4 @@
-import { mapGatewayTopic } from "../src/v2";
+import type { AlloraTopic } from "../src/v2";
 import type { NetworkInference } from "../src/v2/gateway";
 
 export const mockGatewayTopicsResponse = {
@@ -20,7 +20,22 @@ export const mockGatewayTopicsResponse = {
   ],
 };
 
-export const mockTopic = mapGatewayTopic(mockGatewayTopicsResponse.topics[0]);
+/** Independent expected topic — do not derive via `mapGatewayTopic`. */
+export const mockTopic: AlloraTopic = {
+  topic_id: 72,
+  topic_name: "BTC 5min",
+  description: null,
+  epoch_length: 720,
+  ground_truth_lag: 1,
+  loss_method: "mse",
+  worker_submission_window: 10,
+  worker_count: 0,
+  reputer_count: 0,
+  total_staked_allo: 0,
+  total_emissions_allo: 0,
+  is_active: null,
+  updated_at: "",
+};
 
 export const mockNetworkInference: NetworkInference = {
   topic_id: 72,

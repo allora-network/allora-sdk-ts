@@ -29,7 +29,7 @@ export class AlloraAPIClient {
   private readonly network: ChainSlug;
 
   constructor(config: AlloraAPIClientConfig) {
-    const apiKey = config.apiKey.trim();
+    const apiKey = config.apiKey?.trim() ?? "";
     if (!apiKey) {
       throw new Error("ALLORA_API_KEY is required (forge_sk_…)");
     }
@@ -45,10 +45,15 @@ export class AlloraAPIClient {
     }
 
     this.apiKey = apiKey;
-    this.baseAPIUrl = (config.baseAPIUrl ?? DefaultAPIBaseURL).replace(
-      /\/$/,
-      "",
-    );
+    const envBase =
+      typeof process !== "undefined"
+        ? process.env.ALLORA_API_BASE_URL
+        : undefined;
+    this.baseAPIUrl = (
+      config.baseAPIUrl ??
+      envBase ??
+      DefaultAPIBaseURL
+    ).replace(/\/$/, "");
     this.network = network;
   }
 
@@ -134,12 +139,7 @@ export class AlloraAPIClient {
       );
     }
 
-    const bodyText = await response.text();
-    if (bodyText.length > MAX_API_RESPONSE_BYTES) {
-      throw new Error(
-        `response body exceeds ${MAX_API_RESPONSE_BYTES} bytes`,
-      );
-    }
+    const bodyText = await this.readBodyLimited(response);
 
     if (response.status !== 200) {
       let message = "";
@@ -158,5 +158,55 @@ export class AlloraAPIClient {
       throw new APIError(response.status, "empty response body", "");
     }
     return JSON.parse(bodyText) as T;
+  }
+
+  /**
+   * Read the response body incrementally, counting bytes (not UTF-16 code
+   * units). Cancel and reject once `MAX_API_RESPONSE_BYTES` is exceeded.
+   */
+  private async readBodyLimited(response: Response): Promise<string> {
+    if (!response.body) {
+      // Fallback for mocks / environments without a stream body.
+      const text = await response.text();
+      if (new TextEncoder().encode(text).byteLength > MAX_API_RESPONSE_BYTES) {
+        throw new Error(
+          `response body exceeds ${MAX_API_RESPONSE_BYTES} bytes`,
+        );
+      }
+      return text;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        if (!value || value.byteLength === 0) {
+          continue;
+        }
+        total += value.byteLength;
+        if (total > MAX_API_RESPONSE_BYTES) {
+          await reader.cancel();
+          throw new Error(
+            `response body exceeds ${MAX_API_RESPONSE_BYTES} bytes`,
+          );
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder().decode(merged);
   }
 }
