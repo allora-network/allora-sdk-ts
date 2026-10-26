@@ -165,6 +165,14 @@ describe("AlloraAPIClient Unit Tests", () => {
           }),
       ).toThrow(ConfigError);
     });
+
+    it("ignores non-finite timeoutMs", () => {
+      const c = new AlloraAPIClient({
+        apiKey: TEST_KEY,
+        timeoutMs: Infinity,
+      });
+      expect(c["timeoutMs"]).toBeUndefined();
+    });
   });
 
   describe("getAllTopics", () => {
@@ -193,6 +201,13 @@ describe("AlloraAPIClient Unit Tests", () => {
 
     it("throws when topics array is missing", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ network: "testnet" }));
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(AlloraAPIError);
+    });
+
+    it("throws AlloraAPIError for null topic entries", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ topics: [null, mockGatewayTopicsResponse.topics[0]] }),
+      );
       await expect(client.getAllTopics()).rejects.toBeInstanceOf(AlloraAPIError);
     });
 
@@ -246,6 +261,34 @@ describe("AlloraAPIClient Unit Tests", () => {
 
     it("rejects unexpected 200 shapes", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ count: 1 }));
+      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
+      );
+    });
+
+    it("rejects whitespace-only inference values", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topic_id: 72,
+          timestamp: 1000,
+          network_inference: "   ",
+          network_inference_normalized: "  ",
+          combined_value: [null],
+        }),
+      );
+      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
+      );
+    });
+
+    it("rejects fractional topic_id in gateway payload", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topic_id: 1.5,
+          timestamp: 1000,
+          network_inference_normalized: "1.0",
+        }),
+      );
       await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
         AlloraAPIError,
       );

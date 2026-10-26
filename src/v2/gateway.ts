@@ -68,8 +68,13 @@ export interface NetworkInference {
  * Do not invent `updated_at` from `cached_at` / `created_at`.
  */
 export function mapGatewayTopic(gt: GatewayTopicWire): AlloraTopic {
+  if (gt === null || typeof gt !== "object" || Array.isArray(gt)) {
+    throw new AlloraAPIError(
+      `gateway topic entry is not an object (got ${JSON.stringify(gt)})`,
+    );
+  }
   const id = Number(gt.id);
-  if (!Number.isFinite(id) || id <= 0) {
+  if (!Number.isInteger(id) || id <= 0) {
     throw new AlloraAPIError(
       `gateway topic missing valid id (got ${JSON.stringify(gt.id)})`,
     );
@@ -136,7 +141,7 @@ export function assertNetworkInference(data: unknown): NetworkInference {
   const ni = data as NetworkInference;
   if (
     typeof ni.topic_id !== "number" ||
-    !Number.isFinite(ni.topic_id) ||
+    !Number.isInteger(ni.topic_id) ||
     ni.topic_id <= 0
   ) {
     throw new AlloraAPIError(
@@ -147,9 +152,17 @@ export function assertNetworkInference(data: unknown): NetworkInference {
     typeof ni.network_inference_normalized === "string" &&
     ni.network_inference_normalized.trim() !== "";
   const hasRaw =
-    typeof ni.network_inference === "string" && ni.network_inference !== "";
+    typeof ni.network_inference === "string" &&
+    ni.network_inference.trim() !== "";
   const hasCombined =
-    Array.isArray(ni.combined_value) && ni.combined_value.length > 0;
+    Array.isArray(ni.combined_value) &&
+    ni.combined_value.some((entry) => {
+      if (entry === null || typeof entry !== "object") {
+        return false;
+      }
+      const v = (entry as LabeledValue).value;
+      return v != null && String(v).trim() !== "";
+    });
   if (!hasNormalized && !hasRaw && !hasCombined) {
     throw new AlloraAPIError(
       `gateway inference for topic ${ni.topic_id} has no inference values`,

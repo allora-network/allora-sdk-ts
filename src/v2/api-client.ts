@@ -58,7 +58,9 @@ export class AlloraAPIClient {
     this.apiKey = apiKey;
     this.network = network;
     this.timeoutMs =
-      config.timeoutMs !== undefined && config.timeoutMs > 0
+      config.timeoutMs !== undefined &&
+      Number.isFinite(config.timeoutMs) &&
+      config.timeoutMs > 0
         ? config.timeoutMs
         : undefined;
     this.signal = config.signal;
@@ -218,9 +220,8 @@ export class AlloraAPIClient {
   ): Promise<T> {
     const url = this.gatewayURL(path, query);
     const { signal, cleanup } = this.composeSignal();
-    let response: Response;
     try {
-      response = await fetch(url, {
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -228,41 +229,45 @@ export class AlloraAPIClient {
         },
         signal,
       });
-    } finally {
-      cleanup();
-    }
 
-    const contentLengthHeader = response.headers.get("content-length");
-    const contentLength = contentLengthHeader
-      ? Number(contentLengthHeader)
-      : NaN;
-    if (Number.isFinite(contentLength) && contentLength > MAX_API_RESPONSE_BYTES) {
-      await this.cancelBody(response);
-      throw new ResponseTooLargeError(MAX_API_RESPONSE_BYTES);
-    }
-
-    const bodyText = await this.readBodyLimited(response);
-
-    if (response.status !== 200) {
-      let message = "";
-      try {
-        const parsed = JSON.parse(bodyText) as { error?: string };
-        if (parsed && typeof parsed.error === "string") {
-          message = parsed.error;
-        }
-      } catch {
-        // ignore parse errors
+      const contentLengthHeader = response.headers.get("content-length");
+      const contentLength = contentLengthHeader
+        ? Number(contentLengthHeader)
+        : NaN;
+      if (
+        Number.isFinite(contentLength) &&
+        contentLength > MAX_API_RESPONSE_BYTES
+      ) {
+        await this.cancelBody(response);
+        throw new ResponseTooLargeError(MAX_API_RESPONSE_BYTES);
       }
-      throw new APIError(response.status, message, bodyText);
-    }
 
-    if (!bodyText) {
-      throw new APIError(response.status, "empty response body", "");
-    }
-    try {
-      return JSON.parse(bodyText) as T;
-    } catch {
-      throw new AlloraAPIError("gateway response is not valid JSON");
+      const bodyText = await this.readBodyLimited(response);
+
+      if (response.status !== 200) {
+        let message = "";
+        try {
+          const parsed = JSON.parse(bodyText) as { error?: string };
+          if (parsed && typeof parsed.error === "string") {
+            message = parsed.error;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new APIError(response.status, message, bodyText);
+      }
+
+      if (!bodyText) {
+        throw new APIError(response.status, "empty response body", "");
+      }
+      try {
+        return JSON.parse(bodyText) as T;
+      } catch {
+        throw new AlloraAPIError("gateway response is not valid JSON");
+      }
+    } finally {
+      // Keep timeout/external abort active through body read, not just headers.
+      cleanup();
     }
   }
 
