@@ -207,9 +207,17 @@ export class AlloraAPIClient {
     return u.href;
   }
 
-  private composeSignal(): { signal?: AbortSignal; cleanup: () => void } {
+  private composeSignal(): {
+    signal?: AbortSignal;
+    cleanup: () => void;
+    abortReason: () => unknown;
+  } {
     if (!this.signal && !this.timeoutMs) {
-      return { signal: undefined, cleanup: () => undefined };
+      return {
+        signal: undefined,
+        cleanup: () => undefined,
+        abortReason: () => undefined,
+      };
     }
     const controller = new AbortController();
     const onExternalAbort = () => {
@@ -231,6 +239,7 @@ export class AlloraAPIClient {
     }
     return {
       signal: controller.signal,
+      abortReason: () => controller.signal.reason,
       cleanup: () => {
         if (timer) {
           clearTimeout(timer);
@@ -247,7 +256,7 @@ export class AlloraAPIClient {
     query?: Record<string, string>,
   ): Promise<T> {
     const url = this.gatewayURL(path, query);
-    const { signal, cleanup } = this.composeSignal();
+    const { signal, cleanup, abortReason } = this.composeSignal();
     try {
       let response: Response;
       try {
@@ -260,7 +269,7 @@ export class AlloraAPIClient {
           signal,
         });
       } catch (err) {
-        throw this.normalizeAbortError(err);
+        throw this.normalizeAbortError(err, abortReason());
       }
 
       // Do not trust content-length for size limits: under compression it is
@@ -271,7 +280,7 @@ export class AlloraAPIClient {
       try {
         bodyText = await this.readBodyLimited(response);
       } catch (err) {
-        throw this.normalizeAbortError(err);
+        throw this.normalizeAbortError(err, abortReason());
       }
 
       if (response.status !== 200) {
@@ -301,7 +310,15 @@ export class AlloraAPIClient {
     }
   }
 
-  private normalizeAbortError(err: unknown): unknown {
+  private normalizeAbortError(err: unknown, signalReason?: unknown): unknown {
+    // Prefer the composed signal reason — some Fetch impls surface a generic
+    // AbortError even when abort(TimeoutError) was used.
+    if (signalReason instanceof TimeoutError) {
+      return signalReason;
+    }
+    if (signalReason instanceof AlloraAPIError) {
+      return signalReason;
+    }
     if (err instanceof TimeoutError || err instanceof AlloraAPIError) {
       return err;
     }
@@ -315,7 +332,6 @@ export class AlloraAPIClient {
     ) {
       return (err as { cause: TimeoutError }).cause;
     }
-    // Some runtimes reject fetch with the abort reason directly.
     if (
       err &&
       typeof err === "object" &&

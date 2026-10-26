@@ -183,7 +183,7 @@ describe("AlloraAPIClient Unit Tests", () => {
             apiKey: TEST_KEY,
             timeoutMs: 3_000_000_000,
           }),
-      ).toThrow(/exceeds maximum/);
+      ).toThrow(ConfigError);
     });
   });
 

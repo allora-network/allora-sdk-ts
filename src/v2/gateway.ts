@@ -74,8 +74,8 @@ function asTrimmedString(value: unknown): string {
   if (typeof value === "string") {
     return value.trim();
   }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value).trim();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
   }
   return "";
 }
@@ -210,7 +210,8 @@ export function networkInferenceToLegacy(
         ni.confidence_interval_values_normalized ?? [],
       topic_id: String(ni.topic_id),
       timestamp: resolveTimestamp(ni),
-      extra_data: asTrimmedString(ni.extra_data),
+      // Opaque wire field — preserve whitespace; coerce non-strings to "".
+      extra_data: typeof ni.extra_data === "string" ? ni.extra_data : "",
     },
   };
 }
