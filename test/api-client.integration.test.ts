@@ -6,10 +6,13 @@ import {
 
 const DEFAULT_TEST_TIMEOUT = 30000;
 const apiKey = process.env.ALLORA_API_KEY ?? "";
-const hasForgeKey = apiKey.startsWith("forge_sk_");
+const hasForgeKey =
+  apiKey.startsWith("forge_sk_") && !apiKey.includes("…");
 const topicId = Number(process.env.ALLORA_TEST_TOPIC_ID ?? "1");
+const validTopicId = Number.isInteger(topicId) && topicId > 0;
 
-const describeIntegration = hasForgeKey ? describe : describe.skip;
+const describeIntegration =
+  hasForgeKey && validTopicId ? describe : describe.skip;
 
 describeIntegration("AlloraAPIClient Integration Tests", () => {
   let client: AlloraAPIClient;
@@ -18,7 +21,8 @@ describeIntegration("AlloraAPIClient Integration Tests", () => {
     client = new AlloraAPIClient({
       chainSlug: (process.env.ALLORA_NETWORK as ChainSlug) || ChainSlug.TESTNET,
       apiKey,
-      baseAPIUrl: process.env.ALLORA_API_BASE_URL || process.env.ALLORA_API_URL,
+      // Only the Forge override — never fall back to legacy ALLORA_API_URL.
+      baseAPIUrl: process.env.ALLORA_API_BASE_URL,
     });
   });
 
@@ -84,9 +88,9 @@ describeIntegration("AlloraAPIClient Integration Tests", () => {
 
 describe("AlloraAPIClient Integration gate", () => {
   it("documents forge_sk requirement when key missing", () => {
-    if (!hasForgeKey) {
+    if (!hasForgeKey || !validTopicId) {
       console.warn(
-        "Skipping live integration tests: set ALLORA_API_KEY=forge_sk_…",
+        "Skipping live integration tests: set ALLORA_API_KEY=forge_sk_… and ALLORA_TEST_TOPIC_ID",
       );
     }
     expect(true).toBe(true);

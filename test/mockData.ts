@@ -1,5 +1,4 @@
-import type { AlloraTopic } from "../src/v2";
-import type { NetworkInference } from "../src/v2/gateway";
+import type { AlloraTopic, NetworkInference } from "../src/v2";
 
 export const mockGatewayTopicsResponse = {
   network: "testnet",
@@ -46,6 +45,7 @@ export const mockNetworkInference: NetworkInference = {
   network_inference_normalized: "0.00006678",
   signature: "0xabc",
   token_decimals: 18,
+  is_stale: false,
   confidence_interval_percentiles: ["0.25", "0.75"],
   confidence_interval_percentiles_normalized: ["0.25", "0.75"],
   confidence_interval_values: ["0.9", "1.1"],

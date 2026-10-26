@@ -42,8 +42,16 @@ export interface AlloraAPIClientConfig {
   apiKey: string;
   /** Gateway network path segment. Defaults to mainnet. */
   chainSlug?: ChainSlug;
-  /** Forge API Gateway origin override. */
+  /**
+   * Forge API Gateway origin override. Must be `https://` (or `http://`
+   * for localhost / 127.0.0.1). When omitted, `ALLORA_API_BASE_URL` is
+   * read if present, else the public gateway default.
+   */
   baseAPIUrl?: string;
+  /** Optional per-request deadline in milliseconds. */
+  timeoutMs?: number;
+  /** Optional AbortSignal to cancel in-flight gateway requests. */
+  signal?: AbortSignal;
 }
 
 /** Locked public topic shape — field names must not change. */
@@ -72,6 +80,7 @@ export interface AlloraInferenceData {
   confidence_interval_values: string[];
   confidence_interval_values_normalized: string[];
   topic_id: string;
+  /** Unix seconds (legacy field; derived from gateway `timestamp_ms` or `timestamp`). */
   timestamp: number;
   extra_data: string;
 }

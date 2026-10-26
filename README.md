@@ -22,11 +22,13 @@ This release replaces the legacy Upshot `/v2` client:
 | Header `x-api-key` | `Authorization: Bearer …` |
 | `getAllTopics` followed Upshot `continuation_token` pagination | Gateway returns the catalog in one response |
 | `getPriceInference(asset, timeframe)` | **Removed** — the Forge gateway has no price-by-asset endpoint. Use `getInferenceByTopicID(knownTopicId)` instead (see migration below) |
-| `getInferenceByTopicID` defaulted `signatureFormat` to Sepolia | No default — `evm_chain_id` is sent only if you pass `signatureFormat` |
+| `getInferenceByTopicID` defaulted `signatureFormat` to Sepolia | No default — `evm_chain_id` is sent only if you pass `signatureFormat`. **Without it, `signature` is typically `""`** (gateway does not sign). Pass a format / chain id if you need on-chain verification. |
 
 **Unchanged:** public TypeScript shapes `AlloraTopic`, `AlloraInference`, and `AlloraInferenceData` (including nested `inference.inference_data.network_inference_normalized`), and the core signatures of `getAllTopics` and `getInferenceByTopicID`.
 
 Topic fields the gateway does not return (`worker_count`, stakes, `is_active`, `updated_at`, …) stay at zero / `null` / `""` — they are not invented.
+
+For staleness / provenance / `token_decimals` / vector signatures, use `getNetworkInference(topicId)` which returns the full flat gateway payload.
 
 #### Migrating off `getPriceInference`
 
@@ -58,17 +60,22 @@ if (topics.length === 0) {
   throw new Error('no topics');
 }
 
-// Nested inference — same field path as before
+// Nested inference — same field path as before.
+// Without signatureFormat, signature is usually "" (no evm_chain_id).
 const inference = await alloraClient.getInferenceByTopicID(topics[0].topic_id);
 const price = inference.inference_data.network_inference_normalized;
 console.log({ price, signature: inference.signature });
 
 // Optional: request a consumer signature for a specific EVM chain
-// (ethereum-11155111 → evm_chain_id=11155111). Omitted by default.
-// const signed = await alloraClient.getInferenceByTopicID(
-//   topics[0].topic_id,
-//   SignatureFormat.ETHEREUM_SEPOLIA,
-// );
+// (ethereum-11155111 → evm_chain_id=11155111).
+const signed = await alloraClient.getInferenceByTopicID(
+  topics[0].topic_id,
+  SignatureFormat.ETHEREUM_SEPOLIA,
+);
+console.log({ signed: signed.signature });
+
+// Full flat gateway payload (is_stale, token_decimals, …)
+// const raw = await alloraClient.getNetworkInference(topics[0].topic_id);
 ```
 
 ### Environment variables

@@ -1,8 +1,12 @@
 import {
   AlloraAPIClient,
+  AlloraAPIError,
   APIError,
   ChainSlug,
+  ConfigError,
   DefaultAPIBaseURL,
+  MAX_API_RESPONSE_BYTES,
+  ResponseTooLargeError,
   SignatureFormat,
   networkInferenceToLegacy,
 } from "../src/v2";
@@ -13,6 +17,10 @@ import {
 } from "./mockData";
 
 const TEST_KEY = "forge_sk_test_key_123";
+
+function withTrailingSlash(url: string): string {
+  return url.replace(/\/?$/, "/");
+}
 
 function jsonResponse(body: unknown, status = 200) {
   const text = JSON.stringify(body);
@@ -47,9 +55,7 @@ describe("AlloraAPIClient Unit Tests", () => {
 
   describe("constructor", () => {
     it("rejects empty key", () => {
-      expect(() => new AlloraAPIClient({ apiKey: "" })).toThrow(
-        /ALLORA_API_KEY is required/,
-      );
+      expect(() => new AlloraAPIClient({ apiKey: "" })).toThrow(ConfigError);
     });
 
     it("rejects undefined key at runtime", () => {
@@ -58,7 +64,7 @@ describe("AlloraAPIClient Unit Tests", () => {
           new AlloraAPIClient({
             apiKey: undefined as unknown as string,
           }),
-      ).toThrow(/ALLORA_API_KEY is required/);
+      ).toThrow(ConfigError);
     });
 
     it("rejects legacy UP- keys", () => {
@@ -67,12 +73,36 @@ describe("AlloraAPIClient Unit Tests", () => {
       ).toThrow(/forge_sk_/);
     });
 
+    it("rejects empty baseAPIUrl", () => {
+      expect(
+        () => new AlloraAPIClient({ apiKey: TEST_KEY, baseAPIUrl: "   " }),
+      ).toThrow(/baseAPIUrl is empty/);
+    });
+
+    it("rejects non-https remote baseAPIUrl", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            baseAPIUrl: "http://evil.example",
+          }),
+      ).toThrow(/must use https/);
+    });
+
+    it("allows http://localhost", () => {
+      const c = new AlloraAPIClient({
+        apiKey: TEST_KEY,
+        baseAPIUrl: "http://localhost:8082",
+      });
+      expect(c["baseAPIUrl"]).toBe("http://localhost:8082/");
+    });
+
     it("defaults to gateway + mainnet", () => {
       const prev = process.env.ALLORA_API_BASE_URL;
       delete process.env.ALLORA_API_BASE_URL;
       try {
         const c = new AlloraAPIClient({ apiKey: TEST_KEY });
-        expect(c["baseAPIUrl"]).toBe(DefaultAPIBaseURL);
+        expect(c["baseAPIUrl"]).toBe(withTrailingSlash(DefaultAPIBaseURL));
         expect(c["network"]).toBe(ChainSlug.MAINNET);
       } finally {
         if (prev === undefined) {
@@ -88,7 +118,25 @@ describe("AlloraAPIClient Unit Tests", () => {
       process.env.ALLORA_API_BASE_URL = "https://env-gateway.example/";
       try {
         const c = new AlloraAPIClient({ apiKey: TEST_KEY });
-        expect(c["baseAPIUrl"]).toBe("https://env-gateway.example");
+        expect(c["baseAPIUrl"]).toBe("https://env-gateway.example/");
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ALLORA_API_BASE_URL;
+        } else {
+          process.env.ALLORA_API_BASE_URL = prev;
+        }
+      }
+    });
+
+    it("falls back when baseAPIUrl is empty string", () => {
+      const prev = process.env.ALLORA_API_BASE_URL;
+      delete process.env.ALLORA_API_BASE_URL;
+      try {
+        const c = new AlloraAPIClient({
+          apiKey: TEST_KEY,
+          baseAPIUrl: "",
+        });
+        expect(c["baseAPIUrl"]).toBe(withTrailingSlash(DefaultAPIBaseURL));
       } finally {
         if (prev === undefined) {
           delete process.env.ALLORA_API_BASE_URL;
@@ -104,8 +152,18 @@ describe("AlloraAPIClient Unit Tests", () => {
         chainSlug: ChainSlug.TESTNET,
         baseAPIUrl: "https://custom-gateway",
       });
-      expect(c["baseAPIUrl"]).toBe("https://custom-gateway");
+      expect(c["baseAPIUrl"]).toBe("https://custom-gateway/");
       expect(c["network"]).toBe(ChainSlug.TESTNET);
+    });
+
+    it("rejects invalid chainSlug", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            chainSlug: "bogus" as ChainSlug,
+          }),
+      ).toThrow(ConfigError);
     });
   });
 
@@ -131,6 +189,11 @@ describe("AlloraAPIClient Unit Tests", () => {
           }),
         }),
       );
+    });
+
+    it("throws when topics array is missing", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ network: "testnet" }));
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(AlloraAPIError);
     });
 
     it("throws APIError on non-200", async () => {
@@ -166,7 +229,25 @@ describe("AlloraAPIClient Unit Tests", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://gateway.test/testnet/inference/72",
-        expect.any(Object),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${TEST_KEY}`,
+          }),
+        }),
+      );
+    });
+
+    it("rejects non-positive topicID", async () => {
+      await expect(client.getInferenceByTopicID(0)).rejects.toBeInstanceOf(
+        ConfigError,
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects unexpected 200 shapes", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ count: 1 }));
+      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
       );
     });
 
@@ -210,6 +291,84 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
+  describe("getNetworkInference", () => {
+    it("returns the full flat gateway payload", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+      const ni = await client.getNetworkInference(72);
+      expect(ni.topic_id).toBe(72);
+      expect(ni.token_decimals).toBe(18);
+      expect(ni.is_stale).toBe(false);
+    });
+  });
+
+  describe("response size guard", () => {
+    it("rejects oversized content-length and cancels the body", async () => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("{}"));
+          controller.close();
+        },
+      });
+      const cancel = jest.fn(body.cancel.bind(body));
+      Object.defineProperty(body, "cancel", { value: cancel });
+
+      mockFetch.mockResolvedValueOnce(
+        new Response(body, {
+          status: 200,
+          headers: {
+            "content-length": String(MAX_API_RESPONSE_BYTES + 1),
+          },
+        }),
+      );
+
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(
+        ResponseTooLargeError,
+      );
+      expect(cancel).toHaveBeenCalled();
+    });
+
+    it("rejects when streamed bytes exceed the limit", async () => {
+      const chunk = new Uint8Array(1024);
+      let remaining = MAX_API_RESPONSE_BYTES + chunk.byteLength;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (remaining <= 0) {
+            controller.close();
+            return;
+          }
+          const size = Math.min(chunk.byteLength, remaining);
+          remaining -= size;
+          controller.enqueue(chunk.subarray(0, size));
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(
+        ResponseTooLargeError,
+      );
+    });
+
+    it("falls through when content-length is non-numeric", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(mockGatewayTopicsResponse), {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "content-length": "not-a-number",
+          },
+        }),
+      );
+      const topics = await client.getAllTopics();
+      expect(topics).toHaveLength(1);
+    });
+  });
+
   describe("inference mapping", () => {
     it("networkInferenceToLegacy prefers normalized and keeps nested field names", () => {
       const legacy = networkInferenceToLegacy(mockNetworkInference);
@@ -229,6 +388,7 @@ describe("AlloraAPIClient Unit Tests", () => {
     it("falls back to single labeled combined_value when normalized empty", () => {
       const legacy = networkInferenceToLegacy({
         topic_id: 1,
+        timestamp: 1000,
         network_inference_normalized: "  ",
         combined_value: [{ label_name: "y", value: "1.23" }],
         network_inference: "999999",
@@ -236,9 +396,21 @@ describe("AlloraAPIClient Unit Tests", () => {
       expect(legacy.inference_data.network_inference_normalized).toBe("1.23");
     });
 
+    it("hardens combined_value null elements", () => {
+      const legacy = networkInferenceToLegacy({
+        topic_id: 1,
+        timestamp: 1000,
+        network_inference_normalized: "",
+        combined_value: [null as unknown as { label_name: string; value: string }],
+        network_inference: "999",
+      });
+      expect(legacy.inference_data.network_inference_normalized).toBe("");
+    });
+
     it("leaves normalized empty for multi-label bundles", () => {
       const legacy = networkInferenceToLegacy({
         topic_id: 1,
+        timestamp: 1000,
         network_inference_normalized: "",
         combined_value: [
           { label_name: "a", value: "1" },
@@ -266,6 +438,15 @@ describe("AlloraAPIClient Unit Tests", () => {
         network_inference_normalized: "1.0",
       });
       expect(legacy.inference_data.timestamp).toBe(1_700_000_000);
+    });
+
+    it("throws when both timestamps are absent", () => {
+      expect(() =>
+        networkInferenceToLegacy({
+          topic_id: 1,
+          network_inference_normalized: "1.0",
+        }),
+      ).toThrow(/has no timestamp/);
     });
   });
 });

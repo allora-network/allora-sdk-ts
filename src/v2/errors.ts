@@ -6,6 +6,25 @@ export class AlloraAPIError extends Error {
   }
 }
 
+/** Invalid constructor / request arguments. */
+export class ConfigError extends AlloraAPIError {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigError";
+  }
+}
+
+/** Response body exceeded the configured byte limit. */
+export class ResponseTooLargeError extends AlloraAPIError {
+  readonly limitBytes: number;
+
+  constructor(limitBytes: number) {
+    super(`response body exceeds ${limitBytes} bytes`);
+    this.name = "ResponseTooLargeError";
+    this.limitBytes = limitBytes;
+  }
+}
+
 /** Non-2xx HTTP response from Forge Gateway. */
 export class APIError extends AlloraAPIError {
   readonly statusCode: number;

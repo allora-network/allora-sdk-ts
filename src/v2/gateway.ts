@@ -1,3 +1,4 @@
+import { AlloraAPIError } from "./errors";
 import {
   AlloraInference,
   AlloraTopic,
@@ -20,7 +21,11 @@ export interface LabeledValue {
   value: string;
 }
 
-/** Full flat Forge gateway inference payload. */
+/**
+ * Flat Forge gateway inference payload (full wire shape).
+ * Prefer `getNetworkInference` when you need fields beyond the locked
+ * nested `AlloraInference` mapping.
+ */
 export interface NetworkInference {
   network?: string;
   topic_id: number;
@@ -30,9 +35,20 @@ export interface NetworkInference {
   nonce?: number;
   extra_data?: string;
   timestamp_ms?: number;
+  consensus_time?: string;
+  height_tx?: number;
+  outlier_resistant?: boolean;
+  inferer_values?: unknown[];
+  forecaster_values?: unknown[];
+  inference_block_height?: string;
+  cached_at?: string;
+  next_prediction_expected_at?: string;
+  is_stale?: boolean;
+  seconds_late?: number;
   network_inference?: string;
   network_inference_normalized?: string;
   token_decimals?: number;
+  /** Gateway Unix-seconds timestamp (fallback when `timestamp_ms` absent). */
   timestamp?: number;
   signature?: string;
   confidence_interval_percentiles?: string[];
@@ -52,8 +68,14 @@ export interface NetworkInference {
  * Do not invent `updated_at` from `cached_at` / `created_at`.
  */
 export function mapGatewayTopic(gt: GatewayTopicWire): AlloraTopic {
+  const id = Number(gt.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new AlloraAPIError(
+      `gateway topic missing valid id (got ${JSON.stringify(gt.id)})`,
+    );
+  }
   return {
-    topic_id: Number(gt.id ?? 0),
+    topic_id: id,
     topic_name: String(gt.metadata ?? ""),
     description: null,
     epoch_length: Number(gt.epoch_length ?? 0),
@@ -76,7 +98,8 @@ function singleLabeledValue(
   if (!values || values.length !== 1) {
     return "";
   }
-  return values[0].value ?? "";
+  const v = values[0]?.value;
+  return v == null ? "" : String(v).trim();
 }
 
 /**
@@ -97,7 +120,42 @@ function resolveTimestamp(ni: NetworkInference): number {
   if ((ni.timestamp_ms ?? 0) > 0) {
     return Math.floor(ni.timestamp_ms! / 1000);
   }
-  return ni.timestamp ?? 0;
+  if ((ni.timestamp ?? 0) > 0) {
+    return ni.timestamp!;
+  }
+  throw new AlloraAPIError(
+    `gateway inference for topic ${ni.topic_id} has no timestamp`,
+  );
+}
+
+/** Validate a parsed gateway inference body before mapping. */
+export function assertNetworkInference(data: unknown): NetworkInference {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new AlloraAPIError("gateway inference response is not an object");
+  }
+  const ni = data as NetworkInference;
+  if (
+    typeof ni.topic_id !== "number" ||
+    !Number.isFinite(ni.topic_id) ||
+    ni.topic_id <= 0
+  ) {
+    throw new AlloraAPIError(
+      "gateway inference response missing numeric topic_id",
+    );
+  }
+  const hasNormalized =
+    typeof ni.network_inference_normalized === "string" &&
+    ni.network_inference_normalized.trim() !== "";
+  const hasRaw =
+    typeof ni.network_inference === "string" && ni.network_inference !== "";
+  const hasCombined =
+    Array.isArray(ni.combined_value) && ni.combined_value.length > 0;
+  if (!hasNormalized && !hasRaw && !hasCombined) {
+    throw new AlloraAPIError(
+      `gateway inference for topic ${ni.topic_id} has no inference values`,
+    );
+  }
+  return ni;
 }
 
 /**

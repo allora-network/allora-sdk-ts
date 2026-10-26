@@ -1,4 +1,14 @@
 export * from "./types";
 export * from "./errors";
-export { mapGatewayTopic, networkInferenceToLegacy } from "./gateway";
+export {
+  mapGatewayTopic,
+  networkInferenceToLegacy,
+  assertNetworkInference,
+  signatureFormatToEvmChainId,
+} from "./gateway";
+export type {
+  GatewayTopicWire,
+  NetworkInference,
+  LabeledValue,
+} from "./gateway";
 export * from "./api-client";
