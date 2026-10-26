@@ -81,7 +81,9 @@ console.log({ signed: signed.signature });
 // const ac = new AbortController();
 // const pending = alloraClient.getAllTopics({ signal: ac.signal });
 // ac.abort();
+// await pending.catch(() => undefined); // handle AbortError
 ```
+
 
 ### Environment variables
 

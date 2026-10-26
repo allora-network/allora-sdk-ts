@@ -215,7 +215,11 @@ describe("AlloraAPIClient Unit Tests", () => {
       ac.abort();
       await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
+      mockFetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
+        // Next call must not reuse the aborted per-request signal.
+        expect(init?.signal?.aborted).not.toBe(true);
+        return Promise.resolve(jsonResponse(mockGatewayTopicsResponse));
+      });
       const topics = await client.getAllTopics();
       expect(topics).toHaveLength(1);
     });
