@@ -86,11 +86,12 @@ console.log({ signed: signed.signature });
 
 ### Errors and cancellation
 
-| Failure | Rejects with |
-|---------|----------------|
-| HTTP non-2xx / bad payload / config | `AlloraAPIError` subclasses (`APIError`, `ConfigError`, …) |
-| Client `timeoutMs` deadline | `TimeoutError` (subclass of `AlloraAPIError`) |
-| Caller `AbortSignal` cancel | `AbortError` / `DOMException`, or the reason passed to `abort(reason)` — **not** wrapped as `AlloraAPIError` (fetch-style) |
+| Failure | Result |
+|---------|--------|
+| Invalid client configuration | Constructor **throws** `ConfigError` (`AlloraAPIError` subclass) |
+| HTTP non-2xx / bad payload | Request **rejects** with `AlloraAPIError` subclasses (`APIError`, …) |
+| Client `timeoutMs` deadline | Request **rejects** with `TimeoutError` (`AlloraAPIError` subclass) |
+| Caller cancel via `AbortController.abort()` | Request **rejects** with `AbortError` / `DOMException`, or the reason passed to `abort(reason)` — **not** wrapped as `AlloraAPIError` (fetch-style) |
 
 Treat `err.name === "AbortError"` (or your custom abort reason) as intentional cancel; treat `err instanceof TimeoutError` as a deadline.
 

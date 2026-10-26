@@ -59,8 +59,9 @@ export interface AlloraAPIClientConfig {
  * Per-call options (cancellation is request-scoped, not client-scoped).
  *
  * Abort contract (fetch-style):
- * - Caller cancel (`signal.abort()`) rejects with `AbortError` / `DOMException`,
- *   or with the caller's abort reason if one was supplied.
+ * - Caller cancellation via `AbortController.abort()` rejects with
+ *   `AbortError` / `DOMException`, or with the caller's abort reason if one
+ *   was supplied.
  * - Client `timeoutMs` deadline rejects with {@link TimeoutError} (an
  *   `AlloraAPIError` subclass), not a bare abort.
  */
