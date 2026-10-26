@@ -76,6 +76,11 @@ console.log({ signed: signed.signature });
 
 // Full flat gateway payload (is_stale, token_decimals, …)
 // const raw = await alloraClient.getNetworkInference(topics[0].topic_id);
+
+// Cancel a single in-flight call (does not disable the client):
+// const ac = new AbortController();
+// const pending = alloraClient.getAllTopics({ signal: ac.signal });
+// ac.abort();
 ```
 
 ### Environment variables

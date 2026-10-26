@@ -49,15 +49,15 @@ export interface AlloraAPIClientConfig {
    */
   baseAPIUrl?: string;
   /**
-   * Optional request deadline in milliseconds (client-wide).
+   * Optional request deadline in milliseconds (client-wide policy).
    * Must be a finite number in `(0, 2^31 - 1]`.
    */
   timeoutMs?: number;
-  /**
-   * Optional AbortSignal shared by every request on this client instance.
-   * Aborting it cancels in-flight work and rejects subsequent calls until a
-   * new client is constructed. Prefer a fresh signal per logical operation.
-   */
+}
+
+/** Per-call options (cancellation is request-scoped, not client-scoped). */
+export interface AlloraRequestOptions {
+  /** AbortSignal to cancel this request only. */
   signal?: AbortSignal;
 }
 

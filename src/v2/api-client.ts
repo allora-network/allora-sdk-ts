@@ -17,6 +17,7 @@ import {
 import {
   AlloraAPIClientConfig,
   AlloraInference,
+  AlloraRequestOptions,
   AlloraTopic,
   ChainSlug,
   DefaultAPIBaseURL,
@@ -42,7 +43,6 @@ export class AlloraAPIClient {
   private readonly baseAPIUrl: string;
   private readonly network: ChainSlug;
   private readonly timeoutMs: number | undefined;
-  private readonly signal: AbortSignal | undefined;
 
   constructor(config: AlloraAPIClientConfig) {
     const apiKey = config.apiKey?.trim() ?? "";
@@ -62,7 +62,6 @@ export class AlloraAPIClient {
 
     this.apiKey = apiKey;
     this.network = network;
-    this.signal = config.signal;
 
     if (config.timeoutMs !== undefined) {
       if (typeof config.timeoutMs !== "number" || !Number.isFinite(config.timeoutMs)) {
@@ -113,8 +112,8 @@ export class AlloraAPIClient {
    * Fetches all available topics from the Forge API Gateway.
    * Mapped topics only — does not attach inference.
    */
-  async getAllTopics(): Promise<AlloraTopic[]> {
-    return this.fetchTopics();
+  async getAllTopics(opts?: AlloraRequestOptions): Promise<AlloraTopic[]> {
+    return this.fetchTopics(opts?.signal);
   }
 
   /**
@@ -128,6 +127,7 @@ export class AlloraAPIClient {
   async getInferenceByTopicID(
     topicID: number,
     signatureFormat?: SignatureFormat | string,
+    opts?: AlloraRequestOptions,
   ): Promise<AlloraInference> {
     const ni = await this.fetchNetworkInference(
       topicID,
@@ -135,6 +135,7 @@ export class AlloraAPIClient {
         ? signatureFormatToEvmChainId(signatureFormat)
         : undefined,
       true,
+      opts?.signal,
     );
     return networkInferenceToLegacy(ni);
   }
@@ -147,6 +148,7 @@ export class AlloraAPIClient {
   async getNetworkInference(
     topicID: number,
     signatureFormat?: SignatureFormat | string,
+    opts?: AlloraRequestOptions,
   ): Promise<NetworkInference> {
     return this.fetchNetworkInference(
       topicID,
@@ -154,6 +156,7 @@ export class AlloraAPIClient {
         ? signatureFormatToEvmChainId(signatureFormat)
         : undefined,
       false,
+      opts?.signal,
     );
   }
 
@@ -162,9 +165,9 @@ export class AlloraAPIClient {
     return this.gatewayURL(endpoint);
   }
 
-  private async fetchTopics(): Promise<AlloraTopic[]> {
+  private async fetchTopics(signal?: AbortSignal): Promise<AlloraTopic[]> {
     const path = `${this.network}/topics`;
-    const data = await this.gatewayGet<unknown>(path);
+    const data = await this.gatewayGet<unknown>(path, undefined, signal);
     if (data === null || typeof data !== "object" || Array.isArray(data)) {
       throw new AlloraAPIError("gateway topics response is not an object");
     }
@@ -181,6 +184,7 @@ export class AlloraAPIClient {
     topicId: number,
     evmChainId: string | undefined,
     requireValues: boolean,
+    signal?: AbortSignal,
   ): Promise<NetworkInference> {
     if (!Number.isInteger(topicId) || topicId <= 0) {
       throw new ConfigError(
@@ -189,7 +193,7 @@ export class AlloraAPIClient {
     }
     const path = `${this.network}/inference/${topicId}`;
     const query = evmChainId ? { evm_chain_id: evmChainId } : undefined;
-    const data = await this.gatewayGet<unknown>(path, query);
+    const data = await this.gatewayGet<unknown>(path, query, signal);
     return requireValues
       ? assertNetworkInference(data)
       : assertNetworkInferenceShape(data);
@@ -207,12 +211,12 @@ export class AlloraAPIClient {
     return u.href;
   }
 
-  private composeSignal(): {
+  private composeSignal(requestSignal?: AbortSignal): {
     signal?: AbortSignal;
     cleanup: () => void;
     abortReason: () => unknown;
   } {
-    if (!this.signal && !this.timeoutMs) {
+    if (!requestSignal && !this.timeoutMs) {
       return {
         signal: undefined,
         cleanup: () => undefined,
@@ -221,13 +225,15 @@ export class AlloraAPIClient {
     }
     const controller = new AbortController();
     const onExternalAbort = () => {
-      controller.abort(this.signal?.reason);
+      controller.abort(requestSignal?.reason);
     };
-    if (this.signal) {
-      if (this.signal.aborted) {
-        controller.abort(this.signal.reason);
+    if (requestSignal) {
+      if (requestSignal.aborted) {
+        controller.abort(requestSignal.reason);
       } else {
-        this.signal.addEventListener("abort", onExternalAbort, { once: true });
+        requestSignal.addEventListener("abort", onExternalAbort, {
+          once: true,
+        });
       }
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -244,8 +250,8 @@ export class AlloraAPIClient {
         if (timer) {
           clearTimeout(timer);
         }
-        if (this.signal) {
-          this.signal.removeEventListener("abort", onExternalAbort);
+        if (requestSignal) {
+          requestSignal.removeEventListener("abort", onExternalAbort);
         }
       },
     };
@@ -254,9 +260,10 @@ export class AlloraAPIClient {
   private async gatewayGet<T>(
     path: string,
     query?: Record<string, string>,
+    requestSignal?: AbortSignal,
   ): Promise<T> {
     const url = this.gatewayURL(path, query);
-    const { signal, cleanup, abortReason } = this.composeSignal();
+    const { signal, cleanup, abortReason } = this.composeSignal(requestSignal);
     try {
       let response: Response;
       try {

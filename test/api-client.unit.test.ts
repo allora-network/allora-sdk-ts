@@ -187,6 +187,40 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
+  describe("request cancellation", () => {
+    it("aborts only the call that received the signal", async () => {
+      const ac = new AbortController();
+      mockFetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) {
+            reject(new Error("expected signal"));
+            return;
+          }
+          if (signal.aborted) {
+            reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+            return;
+          }
+          signal.addEventListener(
+            "abort",
+            () => {
+              reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+      });
+
+      const pending = client.getAllTopics({ signal: ac.signal });
+      ac.abort();
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
+      const topics = await client.getAllTopics();
+      expect(topics).toHaveLength(1);
+    });
+  });
+
   describe("getAllTopics", () => {
     it("hits gateway path with Bearer auth and maps topics", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
