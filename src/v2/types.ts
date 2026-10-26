@@ -48,9 +48,16 @@ export interface AlloraAPIClientConfig {
    * read if present, else the public gateway default.
    */
   baseAPIUrl?: string;
-  /** Optional per-request deadline in milliseconds. */
+  /**
+   * Optional request deadline in milliseconds (client-wide).
+   * Must be a finite number in `(0, 2^31 - 1]`.
+   */
   timeoutMs?: number;
-  /** Optional AbortSignal to cancel in-flight gateway requests. */
+  /**
+   * Optional AbortSignal shared by every request on this client instance.
+   * Aborting it cancels in-flight work and rejects subsequent calls until a
+   * new client is constructed. Prefer a fresh signal per logical operation.
+   */
   signal?: AbortSignal;
 }
 

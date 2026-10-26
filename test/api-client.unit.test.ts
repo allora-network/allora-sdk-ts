@@ -166,12 +166,24 @@ describe("AlloraAPIClient Unit Tests", () => {
       ).toThrow(ConfigError);
     });
 
-    it("ignores non-finite timeoutMs", () => {
-      const c = new AlloraAPIClient({
-        apiKey: TEST_KEY,
-        timeoutMs: Infinity,
-      });
-      expect(c["timeoutMs"]).toBeUndefined();
+    it("rejects non-finite timeoutMs", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            timeoutMs: Infinity,
+          }),
+      ).toThrow(ConfigError);
+    });
+
+    it("rejects timeoutMs above setTimeout ceiling", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            timeoutMs: 3_000_000_000,
+          }),
+      ).toThrow(/exceeds maximum/);
     });
   });
 
@@ -281,6 +293,39 @@ describe("AlloraAPIClient Unit Tests", () => {
       );
     });
 
+    it("rejects multi-entry combined_value without normalized/raw", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topic_id: 72,
+          timestamp: 1000,
+          network_inference: "",
+          network_inference_normalized: "",
+          combined_value: [
+            { label_name: "a", value: "1" },
+            { label_name: "b", value: "2" },
+          ],
+        }),
+      );
+      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
+      );
+    });
+
+    it("coerces numeric normalized values without throwing", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topic_id: 72,
+          timestamp: 1000,
+          network_inference: "999",
+          network_inference_normalized: 0.00006678,
+        }),
+      );
+      const inference = await client.getInferenceByTopicID(72);
+      expect(inference.inference_data.network_inference_normalized).toBe(
+        "0.00006678",
+      );
+    });
+
     it("rejects fractional topic_id in gateway payload", async () => {
       mockFetch.mockResolvedValueOnce(
         jsonResponse({
@@ -342,35 +387,25 @@ describe("AlloraAPIClient Unit Tests", () => {
       expect(ni.token_decimals).toBe(18);
       expect(ni.is_stale).toBe(false);
     });
+
+    it("allows stale payloads without inference values", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topic_id: 42,
+          is_stale: true,
+          seconds_late: 900,
+          token_decimals: 9,
+          cached_at: "2026-01-01T00:00:00Z",
+        }),
+      );
+      const ni = await client.getNetworkInference(42);
+      expect(ni.is_stale).toBe(true);
+      expect(ni.seconds_late).toBe(900);
+    });
   });
 
   describe("response size guard", () => {
-    it("rejects oversized content-length and cancels the body", async () => {
-      const body = new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode("{}"));
-          controller.close();
-        },
-      });
-      const cancel = jest.fn(body.cancel.bind(body));
-      Object.defineProperty(body, "cancel", { value: cancel });
-
-      mockFetch.mockResolvedValueOnce(
-        new Response(body, {
-          status: 200,
-          headers: {
-            "content-length": String(MAX_API_RESPONSE_BYTES + 1),
-          },
-        }),
-      );
-
-      await expect(client.getAllTopics()).rejects.toBeInstanceOf(
-        ResponseTooLargeError,
-      );
-      expect(cancel).toHaveBeenCalled();
-    });
-
-    it("rejects when streamed bytes exceed the limit", async () => {
+    it("rejects when streamed (decompressed) bytes exceed the limit", async () => {
       const chunk = new Uint8Array(1024);
       let remaining = MAX_API_RESPONSE_BYTES + chunk.byteLength;
       const body = new ReadableStream<Uint8Array>({
@@ -388,27 +423,17 @@ describe("AlloraAPIClient Unit Tests", () => {
       mockFetch.mockResolvedValueOnce(
         new Response(body, {
           status: 200,
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            // Misleading compressed-size header must not gate the stream guard.
+            "content-length": "5129",
+          },
         }),
       );
 
       await expect(client.getAllTopics()).rejects.toBeInstanceOf(
         ResponseTooLargeError,
       );
-    });
-
-    it("falls through when content-length is non-numeric", async () => {
-      mockFetch.mockResolvedValueOnce(
-        new Response(JSON.stringify(mockGatewayTopicsResponse), {
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-            "content-length": "not-a-number",
-          },
-        }),
-      );
-      const topics = await client.getAllTopics();
-      expect(topics).toHaveLength(1);
     });
   });
 
@@ -450,7 +475,7 @@ describe("AlloraAPIClient Unit Tests", () => {
       expect(legacy.inference_data.network_inference_normalized).toBe("");
     });
 
-    it("leaves normalized empty for multi-label bundles", () => {
+    it("leaves normalized empty for multi-label bundles when raw present", () => {
       const legacy = networkInferenceToLegacy({
         topic_id: 1,
         timestamp: 1000,
@@ -462,6 +487,7 @@ describe("AlloraAPIClient Unit Tests", () => {
         network_inference: "999",
       });
       expect(legacy.inference_data.network_inference_normalized).toBe("");
+      expect(legacy.inference_data.network_inference).toBe("999");
     });
 
     it("uses gateway timestamp seconds when timestamp_ms missing", () => {

@@ -25,6 +25,17 @@ export class ResponseTooLargeError extends AlloraAPIError {
   }
 }
 
+/** Client-configured `timeoutMs` elapsed before the response finished. */
+export class TimeoutError extends AlloraAPIError {
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`request timed out after ${timeoutMs}ms`);
+    this.name = "TimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 /** Non-2xx HTTP response from Forge Gateway. */
 export class APIError extends AlloraAPIError {
   readonly statusCode: number;

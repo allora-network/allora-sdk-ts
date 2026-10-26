@@ -3,9 +3,11 @@ import {
   APIError,
   ConfigError,
   ResponseTooLargeError,
+  TimeoutError,
 } from "./errors";
 import {
   assertNetworkInference,
+  assertNetworkInferenceShape,
   GatewayTopicWire,
   mapGatewayTopic,
   NetworkInference,
@@ -30,6 +32,9 @@ const VALID_NETWORKS = new Set<ChainSlug>([
 ]);
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** Node/browser `setTimeout` delay ceiling (2^31 - 1). */
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export class AlloraAPIClient {
   private readonly apiKey: string;
@@ -57,13 +62,26 @@ export class AlloraAPIClient {
 
     this.apiKey = apiKey;
     this.network = network;
-    this.timeoutMs =
-      config.timeoutMs !== undefined &&
-      Number.isFinite(config.timeoutMs) &&
-      config.timeoutMs > 0
-        ? config.timeoutMs
-        : undefined;
     this.signal = config.signal;
+
+    if (config.timeoutMs !== undefined) {
+      if (typeof config.timeoutMs !== "number" || !Number.isFinite(config.timeoutMs)) {
+        throw new ConfigError(
+          `timeoutMs must be a finite number (got ${JSON.stringify(config.timeoutMs)})`,
+        );
+      }
+      if (config.timeoutMs <= 0) {
+        throw new ConfigError("timeoutMs must be > 0");
+      }
+      if (config.timeoutMs > MAX_TIMEOUT_MS) {
+        throw new ConfigError(
+          `timeoutMs exceeds maximum of ${MAX_TIMEOUT_MS}`,
+        );
+      }
+      this.timeoutMs = config.timeoutMs;
+    } else {
+      this.timeoutMs = undefined;
+    }
 
     const envBase =
       typeof process !== "undefined"
@@ -116,14 +134,15 @@ export class AlloraAPIClient {
       signatureFormat
         ? signatureFormatToEvmChainId(signatureFormat)
         : undefined,
+      true,
     );
     return networkInferenceToLegacy(ni);
   }
 
   /**
    * Fetches the full flat gateway inference payload (staleness, decimals,
-   * provenance, vector signature, …). Use this when the locked nested
-   * `AlloraInference` shape is not enough.
+   * provenance, vector signature, …). Structural validation only — does not
+   * require inference values, so stale/empty topics remain readable.
    */
   async getNetworkInference(
     topicID: number,
@@ -134,6 +153,7 @@ export class AlloraAPIClient {
       signatureFormat
         ? signatureFormatToEvmChainId(signatureFormat)
         : undefined,
+      false,
     );
   }
 
@@ -159,7 +179,8 @@ export class AlloraAPIClient {
 
   private async fetchNetworkInference(
     topicId: number,
-    evmChainId?: string,
+    evmChainId: string | undefined,
+    requireValues: boolean,
   ): Promise<NetworkInference> {
     if (!Number.isInteger(topicId) || topicId <= 0) {
       throw new ConfigError(
@@ -169,7 +190,9 @@ export class AlloraAPIClient {
     const path = `${this.network}/inference/${topicId}`;
     const query = evmChainId ? { evm_chain_id: evmChainId } : undefined;
     const data = await this.gatewayGet<unknown>(path, query);
-    return assertNetworkInference(data);
+    return requireValues
+      ? assertNetworkInference(data)
+      : assertNetworkInferenceShape(data);
   }
 
   private gatewayURL(path: string, query?: Record<string, string>): string {
@@ -189,17 +212,22 @@ export class AlloraAPIClient {
       return { signal: undefined, cleanup: () => undefined };
     }
     const controller = new AbortController();
-    const onExternalAbort = () => controller.abort();
+    const onExternalAbort = () => {
+      controller.abort(this.signal?.reason);
+    };
     if (this.signal) {
       if (this.signal.aborted) {
-        controller.abort();
+        controller.abort(this.signal.reason);
       } else {
         this.signal.addEventListener("abort", onExternalAbort, { once: true });
       }
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (this.timeoutMs) {
-      timer = setTimeout(() => controller.abort(), this.timeoutMs);
+      const timeoutMs = this.timeoutMs;
+      timer = setTimeout(() => {
+        controller.abort(new TimeoutError(timeoutMs));
+      }, timeoutMs);
     }
     return {
       signal: controller.signal,
@@ -221,28 +249,30 @@ export class AlloraAPIClient {
     const url = this.gatewayURL(path, query);
     const { signal, cleanup } = this.composeSignal();
     try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        signal,
-      });
-
-      const contentLengthHeader = response.headers.get("content-length");
-      const contentLength = contentLengthHeader
-        ? Number(contentLengthHeader)
-        : NaN;
-      if (
-        Number.isFinite(contentLength) &&
-        contentLength > MAX_API_RESPONSE_BYTES
-      ) {
-        await this.cancelBody(response);
-        throw new ResponseTooLargeError(MAX_API_RESPONSE_BYTES);
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          signal,
+        });
+      } catch (err) {
+        throw this.normalizeAbortError(err);
       }
 
-      const bodyText = await this.readBodyLimited(response);
+      // Do not trust content-length for size limits: under compression it is
+      // the encoded size, while body chunks are decompressed. Bound memory via
+      // the streaming byte counter in readBodyLimited instead.
+
+      let bodyText: string;
+      try {
+        bodyText = await this.readBodyLimited(response);
+      } catch (err) {
+        throw this.normalizeAbortError(err);
+      }
 
       if (response.status !== 200) {
         let message = "";
@@ -271,17 +301,35 @@ export class AlloraAPIClient {
     }
   }
 
-  private async cancelBody(response: Response): Promise<void> {
-    try {
-      await response.body?.cancel();
-    } catch {
-      // best-effort drain / cancel
+  private normalizeAbortError(err: unknown): unknown {
+    if (err instanceof TimeoutError || err instanceof AlloraAPIError) {
+      return err;
     }
+    if (
+      err &&
+      typeof err === "object" &&
+      "name" in err &&
+      (err as { name?: string }).name === "AbortError" &&
+      "cause" in err &&
+      (err as { cause?: unknown }).cause instanceof TimeoutError
+    ) {
+      return (err as { cause: TimeoutError }).cause;
+    }
+    // Some runtimes reject fetch with the abort reason directly.
+    if (
+      err &&
+      typeof err === "object" &&
+      "name" in err &&
+      (err as { name?: string }).name === "TimeoutError"
+    ) {
+      return err;
+    }
+    return err;
   }
 
   /**
-   * Read the response body incrementally, counting bytes (not UTF-16 code
-   * units). Cancel and reject once `MAX_API_RESPONSE_BYTES` is exceeded.
+   * Read the response body incrementally, counting decompressed bytes.
+   * Cancel and reject once `MAX_API_RESPONSE_BYTES` is exceeded.
    */
   private async readBodyLimited(response: Response): Promise<string> {
     if (!response.body) {

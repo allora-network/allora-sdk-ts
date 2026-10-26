@@ -4,6 +4,7 @@ export {
   mapGatewayTopic,
   networkInferenceToLegacy,
   assertNetworkInference,
+  assertNetworkInferenceShape,
   signatureFormatToEvmChainId,
 } from "./gateway";
 export type {

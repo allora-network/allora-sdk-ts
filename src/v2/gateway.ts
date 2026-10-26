@@ -55,11 +55,29 @@ export interface NetworkInference {
   confidence_interval_percentiles_normalized?: string[];
   confidence_interval_values?: string[];
   confidence_interval_values_normalized?: string[];
-  evm_chain_id?: number;
+  /**
+   * Gateway may return this as a JSON number or string depending on route.
+   * Treat as opaque wire value; do not assume `typeof === "number"`.
+   */
+  evm_chain_id?: number | string;
   consumer_address?: string;
   vector_signature?: string;
   vector_signature_public?: string;
   signature_extra_data?: string;
+}
+
+/** Coerce gateway scalars into trimmed strings for locked string fields. */
+function asTrimmedString(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value).trim();
+  }
+  return "";
 }
 
 /**
@@ -103,8 +121,7 @@ function singleLabeledValue(
   if (!values || values.length !== 1) {
     return "";
   }
-  const v = values[0]?.value;
-  return v == null ? "" : String(v).trim();
+  return asTrimmedString(values[0]?.value);
 }
 
 /**
@@ -113,8 +130,10 @@ function singleLabeledValue(
  * `network_inference`.
  */
 function resolveNormalized(ni: NetworkInference): string {
-  return (ni.network_inference_normalized ?? "").trim()
-    || singleLabeledValue(ni.combined_value);
+  return (
+    asTrimmedString(ni.network_inference_normalized) ||
+    singleLabeledValue(ni.combined_value)
+  );
 }
 
 /**
@@ -133,8 +152,10 @@ function resolveTimestamp(ni: NetworkInference): number {
   );
 }
 
-/** Validate a parsed gateway inference body before mapping. */
-export function assertNetworkInference(data: unknown): NetworkInference {
+/** Structural check: object + positive integer topic_id. */
+export function assertNetworkInferenceShape(
+  data: unknown,
+): NetworkInference {
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
     throw new AlloraAPIError("gateway inference response is not an object");
   }
@@ -148,21 +169,19 @@ export function assertNetworkInference(data: unknown): NetworkInference {
       "gateway inference response missing numeric topic_id",
     );
   }
-  const hasNormalized =
-    typeof ni.network_inference_normalized === "string" &&
-    ni.network_inference_normalized.trim() !== "";
-  const hasRaw =
-    typeof ni.network_inference === "string" &&
-    ni.network_inference.trim() !== "";
-  const hasCombined =
-    Array.isArray(ni.combined_value) &&
-    ni.combined_value.some((entry) => {
-      if (entry === null || typeof entry !== "object") {
-        return false;
-      }
-      const v = (entry as LabeledValue).value;
-      return v != null && String(v).trim() !== "";
-    });
+  return ni;
+}
+
+/**
+ * Full check for the locked legacy mapper: shape + at least one value the
+ * mapper can surface (normalized, raw, or a single labeled combined_value).
+ */
+export function assertNetworkInference(data: unknown): NetworkInference {
+  const ni = assertNetworkInferenceShape(data);
+  const hasNormalized = asTrimmedString(ni.network_inference_normalized) !== "";
+  const hasRaw = asTrimmedString(ni.network_inference) !== "";
+  // Must match singleLabeledValue: multi-entry bundles do not yield a value.
+  const hasCombined = singleLabeledValue(ni.combined_value) !== "";
   if (!hasNormalized && !hasRaw && !hasCombined) {
     throw new AlloraAPIError(
       `gateway inference for topic ${ni.topic_id} has no inference values`,
@@ -178,9 +197,9 @@ export function networkInferenceToLegacy(
   ni: NetworkInference,
 ): AlloraInference {
   return {
-    signature: ni.signature ?? "",
+    signature: asTrimmedString(ni.signature),
     inference_data: {
-      network_inference: ni.network_inference ?? "",
+      network_inference: asTrimmedString(ni.network_inference),
       network_inference_normalized: resolveNormalized(ni),
       confidence_interval_percentiles:
         ni.confidence_interval_percentiles ?? [],
@@ -191,7 +210,7 @@ export function networkInferenceToLegacy(
         ni.confidence_interval_values_normalized ?? [],
       topic_id: String(ni.topic_id),
       timestamp: resolveTimestamp(ni),
-      extra_data: ni.extra_data ?? "",
+      extra_data: asTrimmedString(ni.extra_data),
     },
   };
 }
