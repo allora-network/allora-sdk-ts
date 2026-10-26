@@ -25,7 +25,11 @@ export class ResponseTooLargeError extends AlloraAPIError {
   }
 }
 
-/** Client-configured `timeoutMs` elapsed before the response finished. */
+/**
+ * Client-configured `timeoutMs` elapsed before the response finished.
+ * Distinct from caller cancellation, which rejects with `AbortError` /
+ * the caller's abort reason (not an `AlloraAPIError`).
+ */
 export class TimeoutError extends AlloraAPIError {
   readonly timeoutMs: number;
 

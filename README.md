@@ -81,9 +81,18 @@ console.log({ signed: signed.signature });
 // const ac = new AbortController();
 // const pending = alloraClient.getAllTopics({ signal: ac.signal });
 // ac.abort();
-// await pending.catch(() => undefined); // handle AbortError
+// await pending.catch(() => undefined); // AbortError / caller reason
 ```
 
+### Errors and cancellation
+
+| Failure | Rejects with |
+|---------|----------------|
+| HTTP non-2xx / bad payload / config | `AlloraAPIError` subclasses (`APIError`, `ConfigError`, …) |
+| Client `timeoutMs` deadline | `TimeoutError` (subclass of `AlloraAPIError`) |
+| Caller `AbortSignal` cancel | `AbortError` / `DOMException`, or the reason passed to `abort(reason)` — **not** wrapped as `AlloraAPIError` (fetch-style) |
+
+Treat `err.name === "AbortError"` (or your custom abort reason) as intentional cancel; treat `err instanceof TimeoutError` as a deadline.
 
 ### Environment variables
 

@@ -111,6 +111,9 @@ export class AlloraAPIClient {
   /**
    * Fetches all available topics from the Forge API Gateway.
    * Mapped topics only — does not attach inference.
+   *
+   * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
+   * reason; client `timeoutMs` → {@link TimeoutError}.
    */
   async getAllTopics(opts?: AlloraRequestOptions): Promise<AlloraTopic[]> {
     return this.fetchTopics(opts?.signal);
@@ -123,6 +126,9 @@ export class AlloraAPIClient {
    * If `signatureFormat` is provided, it is mapped onto the gateway
    * `evm_chain_id` query (e.g. ethereum-11155111 → 11155111).
    * If omitted, no `evm_chain_id` is sent and `signature` is typically `""`.
+   *
+   * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
+   * reason; client `timeoutMs` → {@link TimeoutError}.
    */
   async getInferenceByTopicID(
     topicID: number,
@@ -144,6 +150,9 @@ export class AlloraAPIClient {
    * Fetches the full flat gateway inference payload (staleness, decimals,
    * provenance, vector signature, …). Structural validation only — does not
    * require inference values, so stale/empty topics remain readable.
+   *
+   * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
+   * reason; client `timeoutMs` → {@link TimeoutError}.
    */
   async getNetworkInference(
     topicID: number,
