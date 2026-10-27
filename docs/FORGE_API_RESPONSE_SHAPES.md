@@ -1,6 +1,6 @@
 # Forge API — response shapes (SDK alignment contract)
 
-Copied from the Go SDK shapes doc for this repo. Public TypeScript types match these wire shapes (no Upshot nested compat wrappers).
+Copied from the Go SDK shapes doc for this repo. Public TypeScript types match these wire shapes; Upshot nested compat types/adapters were removed.
 
 See also: https://github.com/allora-network/allora-sdk-go/pull/29 · [ENGN-9548](https://linear.app/alloralabs/issue/ENGN-9548)
 
@@ -21,7 +21,7 @@ Envelope: `{ network, count, cached_at, topics: Topic[] }`
 | `ground_truth_lag` | number |
 | `worker_submission_window` | number |
 | `created_at` | RFC3339 string \| null |
-| `latest_network_inference` | `NetworkInference \| null` (SDK-only; attached by `getTopic`; `null` on inference failure) |
+| `latest_network_inference` | `NetworkInference \| null` (SDK-only; optional, attached by `getTopic`; absent from `getAllTopics`; `null` on inference failure) |
 
 ## Network inference — `GET /{network}/inference/{topic_id}`
 

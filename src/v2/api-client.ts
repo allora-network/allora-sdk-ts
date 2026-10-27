@@ -110,7 +110,8 @@ export class AlloraAPIClient {
    * Does not attach inference.
    *
    * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
-   * reason; client `timeoutMs` → {@link TimeoutError}.
+   * reason; client `timeoutMs` → {@link TimeoutError}; transport failures
+   * surface as the raw fetch error.
    */
   async getAllTopics(opts?: AlloraRequestOptions): Promise<Topic[]> {
     return this.fetchTopics(opts?.signal);
@@ -121,7 +122,8 @@ export class AlloraAPIClient {
    * `latest_network_inference`. The gateway has no single-topic route yet, so
    * this scans the catalog list. Missing ids throw {@link TopicNotFoundError}.
    * Gateway/HTTP/shape failures set `latest_network_inference` to `null`.
-   * Caller cancel and client timeout still reject.
+   * Invalid `topicID` → {@link ConfigError}; missing catalog id →
+   * {@link TopicNotFoundError}; caller cancel / client timeout still reject.
    */
   async getTopic(
     topicID: number,
@@ -162,8 +164,9 @@ export class AlloraAPIClient {
    * `evm_chain_id` query. If omitted, no `evm_chain_id` is sent and
    * `signature` is typically `""`.
    *
-   * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
-   * reason; client `timeoutMs` → {@link TimeoutError}.
+   * Rejection contract: invalid `topicID` → {@link ConfigError}; caller
+   * `opts.signal` cancel → `AbortError` / caller reason; client `timeoutMs` →
+   * {@link TimeoutError}; transport failures surface as the raw fetch error.
    */
   async getNetworkInference(
     topicID: number,

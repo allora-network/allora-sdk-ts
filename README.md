@@ -72,8 +72,11 @@ console.log({ signed: signed.signature });
 | Failure | Result |
 |---------|--------|
 | Invalid client configuration | Constructor **throws** `ConfigError` (`AlloraAPIError` subclass) |
-| Topic missing from catalog | Request **rejects** with `TopicNotFoundError` |
+| Invalid request argument (e.g. non-positive `topicID`) | Request **rejects** with `ConfigError` (`AlloraAPIError` subclass) |
+| `getTopic` topic missing from catalog | Request **rejects** with `TopicNotFoundError` |
 | HTTP non-2xx / bad payload | Request **rejects** with `AlloraAPIError` subclasses (`APIError`, …) |
+| Response body exceeds 32 MiB | Request **rejects** with `ResponseTooLargeError` (`AlloraAPIError` subclass) |
+| Transport failure (DNS / connection / TLS) | Request **rejects** with the fetch error unchanged (e.g. `TypeError`) — not wrapped |
 | Client `timeoutMs` deadline | Request **rejects** with `TimeoutError` (`AlloraAPIError` subclass) |
 | Caller cancel via `AbortController.abort()` | Request **rejects** with `AbortError` / `DOMException`, or the reason passed to `abort(reason)` — **not** wrapped as `AlloraAPIError` (fetch-style) |
 
