@@ -49,7 +49,7 @@ Prefer `network_inference_normalized` for prices; never treat raw `network_infer
 
 | Capability | Suggested |
 |------------|-----------|
-| List topics | `getTopics()` / `getAllTopics()` → `Topic[]` |
+| List topics | `getAllTopics()` → `Topic[]` |
 | One topic | `getTopic(id)` — best-effort attach inference |
 | Inference | `getNetworkInference(id, opts?)` |
 | Candles | `getCandles(query)` + async iterator over pages |

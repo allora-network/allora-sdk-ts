@@ -106,7 +106,7 @@ export class AlloraAPIClient {
   }
 
   /**
-   * Fetches all catalog topics from the Forge API Gateway (wire `Topic` shape).
+   * Fetches catalog topics from the Forge API Gateway (wire `Topic` shape).
    * Does not attach inference.
    *
    * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
@@ -114,11 +114,6 @@ export class AlloraAPIClient {
    */
   async getAllTopics(opts?: AlloraRequestOptions): Promise<Topic[]> {
     return this.fetchTopics(opts?.signal);
-  }
-
-  /** Alias for {@link getAllTopics} (Go: `GetTopics`). */
-  async getTopics(opts?: AlloraRequestOptions): Promise<Topic[]> {
-    return this.getAllTopics(opts);
   }
 
   /**
