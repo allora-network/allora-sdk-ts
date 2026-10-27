@@ -8,6 +8,7 @@ import {
   MAX_API_RESPONSE_BYTES,
   ResponseTooLargeError,
   SignatureFormat,
+  TopicNotFoundError,
   networkInferenceToLegacy,
 } from "../src/v2";
 import {
@@ -216,7 +217,6 @@ describe("AlloraAPIClient Unit Tests", () => {
       await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 
       mockFetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
-        // Next call must not reuse the aborted per-request signal.
         expect(init?.signal?.aborted).not.toBe(true);
         return Promise.resolve(jsonResponse(mockGatewayTopicsResponse));
       });
@@ -226,18 +226,18 @@ describe("AlloraAPIClient Unit Tests", () => {
   });
 
   describe("getAllTopics", () => {
-    it("hits gateway path with Bearer auth and maps topics", async () => {
+    it("hits gateway path with Bearer auth and returns wire Topic", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
 
       const topics = await client.getAllTopics();
 
       expect(topics).toHaveLength(1);
-      expect(topics[0].topic_id).toBe(mockTopic.topic_id);
-      expect(topics[0].topic_name).toBe("BTC 5min");
+      expect(topics[0].id).toBe(mockTopic.id);
+      expect(topics[0].metadata).toBe("BTC 5min");
       expect(topics[0].epoch_length).toBe(720);
-      expect(topics[0].worker_count).toBe(0);
-      expect(topics[0].is_active).toBeNull();
-      expect(topics[0].updated_at).toBe("");
+      expect(topics[0].creator).toBe("allo1…");
+      expect(topics[0]).not.toHaveProperty("topic_id");
+      expect(topics[0]).not.toHaveProperty("topic_name");
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://gateway.test/testnet/topics",
@@ -275,22 +275,49 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
-  describe("getInferenceByTopicID", () => {
-    it("maps flat gateway JSON to nested AlloraInference without evm_chain_id by default", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+  describe("getTopic", () => {
+    it("returns catalog topic and attaches latest inference", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockResolvedValueOnce(jsonResponse(mockNetworkInference));
 
-      const inference = await client.getInferenceByTopicID(72);
-
-      expect(inference.signature).toBe("0xabc");
-      expect(inference.inference_data.network_inference_normalized).toBe(
+      const topic = await client.getTopic(72);
+      expect(topic.id).toBe(72);
+      expect(topic.metadata).toBe("BTC 5min");
+      expect(topic.latest_network_inference?.network_inference_normalized).toBe(
         "0.00006678",
       );
-      expect(inference.inference_data.network_inference).toBe(
-        "66781380725120668592",
+    });
+
+    it("leaves latest_network_inference null when inference fails", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockResolvedValueOnce(jsonResponse({ error: "billing" }, 402));
+
+      const topic = await client.getTopic(72);
+      expect(topic.latest_network_inference).toBeNull();
+    });
+
+    it("throws TopicNotFoundError for unknown id", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
+      await expect(client.getTopic(999)).rejects.toBeInstanceOf(
+        TopicNotFoundError,
       );
-      expect(inference.inference_data.topic_id).toBe("72");
-      // Legacy timestamp is Unix seconds (timestamp_ms / 1000).
-      expect(inference.inference_data.timestamp).toBe(1784025644);
+    });
+  });
+
+  describe("getNetworkInference", () => {
+    it("returns the flat gateway payload without nested wrapping", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      const inference = await client.getNetworkInference(72);
+
+      expect(inference.signature).toBe("0xabc");
+      expect(inference.network_inference_normalized).toBe("0.00006678");
+      expect(inference.network_inference).toBe("66781380725120668592");
+      expect(inference.topic_id).toBe(72);
+      expect(inference.timestamp_ms).toBe(1784025644244);
+      expect(inference).not.toHaveProperty("inference_data");
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://gateway.test/testnet/inference/72",
@@ -303,7 +330,7 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
 
     it("rejects non-positive topicID", async () => {
-      await expect(client.getInferenceByTopicID(0)).rejects.toBeInstanceOf(
+      await expect(client.getNetworkInference(0)).rejects.toBeInstanceOf(
         ConfigError,
       );
       expect(mockFetch).not.toHaveBeenCalled();
@@ -311,119 +338,9 @@ describe("AlloraAPIClient Unit Tests", () => {
 
     it("rejects unexpected 200 shapes", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ count: 1 }));
-      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
+      await expect(client.getNetworkInference(72)).rejects.toBeInstanceOf(
         AlloraAPIError,
       );
-    });
-
-    it("rejects whitespace-only inference values", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          topic_id: 72,
-          timestamp: 1000,
-          network_inference: "   ",
-          network_inference_normalized: "  ",
-          combined_value: [null],
-        }),
-      );
-      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
-        AlloraAPIError,
-      );
-    });
-
-    it("rejects multi-entry combined_value without normalized/raw", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          topic_id: 72,
-          timestamp: 1000,
-          network_inference: "",
-          network_inference_normalized: "",
-          combined_value: [
-            { label_name: "a", value: "1" },
-            { label_name: "b", value: "2" },
-          ],
-        }),
-      );
-      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
-        AlloraAPIError,
-      );
-    });
-
-    it("coerces numeric normalized values without throwing", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          topic_id: 72,
-          timestamp: 1000,
-          network_inference: "999",
-          network_inference_normalized: 0.00006678,
-        }),
-      );
-      const inference = await client.getInferenceByTopicID(72);
-      expect(inference.inference_data.network_inference_normalized).toBe(
-        "0.00006678",
-      );
-    });
-
-    it("rejects fractional topic_id in gateway payload", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          topic_id: 1.5,
-          timestamp: 1000,
-          network_inference_normalized: "1.0",
-        }),
-      );
-      await expect(client.getInferenceByTopicID(72)).rejects.toBeInstanceOf(
-        AlloraAPIError,
-      );
-    });
-
-    it("sends evm_chain_id only when signatureFormat is provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
-
-      await client.getInferenceByTopicID(
-        72,
-        SignatureFormat.ETHEREUM_SEPOLIA,
-      );
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://gateway.test/testnet/inference/72?evm_chain_id=11155111",
-        expect.any(Object),
-      );
-    });
-
-    it("maps ETHEREUM_ALLORA_TESTNET to evm_chain_id=3448148188", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
-
-      await client.getInferenceByTopicID(
-        1,
-        SignatureFormat.ETHEREUM_ALLORA_TESTNET,
-      );
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://gateway.test/testnet/inference/1?evm_chain_id=3448148188",
-        expect.any(Object),
-      );
-    });
-
-    it("accepts a raw chain id string", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
-
-      await client.getInferenceByTopicID(1, "3448148188");
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://gateway.test/testnet/inference/1?evm_chain_id=3448148188",
-        expect.any(Object),
-      );
-    });
-  });
-
-  describe("getNetworkInference", () => {
-    it("returns the full flat gateway payload", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
-      const ni = await client.getNetworkInference(72);
-      expect(ni.topic_id).toBe(72);
-      expect(ni.token_decimals).toBe(18);
-      expect(ni.is_stale).toBe(false);
     });
 
     it("allows stale payloads without inference values", async () => {
@@ -439,6 +356,49 @@ describe("AlloraAPIClient Unit Tests", () => {
       const ni = await client.getNetworkInference(42);
       expect(ni.is_stale).toBe(true);
       expect(ni.seconds_late).toBe(900);
+    });
+
+    it("sends evm_chain_id when signatureFormat is provided", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      await client.getNetworkInference(72, SignatureFormat.ETHEREUM_SEPOLIA);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/72?evm_chain_id=11155111",
+        expect.any(Object),
+      );
+    });
+
+    it("maps ETHEREUM_ALLORA_TESTNET to evm_chain_id=3448148188", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      await client.getNetworkInference(
+        1,
+        SignatureFormat.ETHEREUM_ALLORA_TESTNET,
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/1?evm_chain_id=3448148188",
+        expect.any(Object),
+      );
+    });
+
+    it("accepts a raw chain id string", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      await client.getNetworkInference(1, "3448148188");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/1?evm_chain_id=3448148188",
+        expect.any(Object),
+      );
+    });
+
+    it("getInferenceByTopicID aliases getNetworkInference", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+      const inference = await client.getInferenceByTopicID(72);
+      expect(inference.network_inference_normalized).toBe("0.00006678");
+      expect(inference).not.toHaveProperty("inference_data");
     });
   });
 
@@ -463,7 +423,6 @@ describe("AlloraAPIClient Unit Tests", () => {
           status: 200,
           headers: {
             "content-type": "application/json",
-            // Misleading compressed-size header must not gate the stream guard.
             "content-length": "5129",
           },
         }),
@@ -475,85 +434,14 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
-  describe("inference mapping", () => {
-    it("networkInferenceToLegacy prefers normalized and keeps nested field names", () => {
+  describe("deprecated legacy adapter", () => {
+    it("networkInferenceToLegacy still maps to nested shape", () => {
       const legacy = networkInferenceToLegacy(mockNetworkInference);
       expect(legacy.signature).toBe("0xabc");
       expect(legacy.inference_data.network_inference_normalized).toBe(
         "0.00006678",
       );
-      expect(legacy.inference_data.network_inference_normalized).not.toBe(
-        mockNetworkInference.network_inference,
-      );
-      expect(legacy.inference_data.confidence_interval_percentiles).toEqual([
-        "0.25",
-        "0.75",
-      ]);
-    });
-
-    it("falls back to single labeled combined_value when normalized empty", () => {
-      const legacy = networkInferenceToLegacy({
-        topic_id: 1,
-        timestamp: 1000,
-        network_inference_normalized: "  ",
-        combined_value: [{ label_name: "y", value: "1.23" }],
-        network_inference: "999999",
-      });
-      expect(legacy.inference_data.network_inference_normalized).toBe("1.23");
-    });
-
-    it("hardens combined_value null elements", () => {
-      const legacy = networkInferenceToLegacy({
-        topic_id: 1,
-        timestamp: 1000,
-        network_inference_normalized: "",
-        combined_value: [null as unknown as { label_name: string; value: string }],
-        network_inference: "999",
-      });
-      expect(legacy.inference_data.network_inference_normalized).toBe("");
-    });
-
-    it("leaves normalized empty for multi-label bundles when raw present", () => {
-      const legacy = networkInferenceToLegacy({
-        topic_id: 1,
-        timestamp: 1000,
-        network_inference_normalized: "",
-        combined_value: [
-          { label_name: "a", value: "1" },
-          { label_name: "b", value: "2" },
-        ],
-        network_inference: "999",
-      });
-      expect(legacy.inference_data.network_inference_normalized).toBe("");
-      expect(legacy.inference_data.network_inference).toBe("999");
-    });
-
-    it("uses gateway timestamp seconds when timestamp_ms missing", () => {
-      const legacy = networkInferenceToLegacy({
-        topic_id: 1,
-        timestamp: 1000,
-        network_inference_normalized: "1.0",
-      });
-      expect(legacy.inference_data.timestamp).toBe(1000);
-    });
-
-    it("converts timestamp_ms to Unix seconds", () => {
-      const legacy = networkInferenceToLegacy({
-        topic_id: 1,
-        timestamp_ms: 1_700_000_000_123,
-        timestamp: 1,
-        network_inference_normalized: "1.0",
-      });
-      expect(legacy.inference_data.timestamp).toBe(1_700_000_000);
-    });
-
-    it("throws when both timestamps are absent", () => {
-      expect(() =>
-        networkInferenceToLegacy({
-          topic_id: 1,
-          network_inference_normalized: "1.0",
-        }),
-      ).toThrow(/has no timestamp/);
+      expect(legacy.inference_data.timestamp).toBe(1784025644);
     });
   });
 });

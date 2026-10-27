@@ -4,26 +4,23 @@ import {
   ConfigError,
   ResponseTooLargeError,
   TimeoutError,
+  TopicNotFoundError,
 } from "./errors";
 import {
-  assertNetworkInference,
   assertNetworkInferenceShape,
-  GatewayTopicWire,
-  mapGatewayTopic,
-  NetworkInference,
-  networkInferenceToLegacy,
+  assertTopic,
   signatureFormatToEvmChainId,
 } from "./gateway";
 import {
   AlloraAPIClientConfig,
-  AlloraInference,
   AlloraRequestOptions,
-  AlloraTopic,
   ChainSlug,
   DefaultAPIBaseURL,
   FORGE_API_KEY_PREFIX,
   MAX_API_RESPONSE_BYTES,
+  NetworkInference,
   SignatureFormat,
+  Topic,
 } from "./types";
 
 const VALID_NETWORKS = new Set<ChainSlug>([
@@ -109,47 +106,59 @@ export class AlloraAPIClient {
   }
 
   /**
-   * Fetches all available topics from the Forge API Gateway.
-   * Mapped topics only — does not attach inference.
+   * Fetches all catalog topics from the Forge API Gateway (wire `Topic` shape).
+   * Does not attach inference.
    *
    * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
    * reason; client `timeoutMs` → {@link TimeoutError}.
    */
-  async getAllTopics(opts?: AlloraRequestOptions): Promise<AlloraTopic[]> {
+  async getAllTopics(opts?: AlloraRequestOptions): Promise<Topic[]> {
     return this.fetchTopics(opts?.signal);
   }
 
-  /**
-   * Fetches an inference for a specific topic from the Forge API Gateway.
-   * Returns the locked nested AlloraInference shape.
-   *
-   * If `signatureFormat` is provided, it is mapped onto the gateway
-   * `evm_chain_id` query (e.g. ethereum-11155111 → 11155111).
-   * If omitted, no `evm_chain_id` is sent and `signature` is typically `""`.
-   *
-   * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
-   * reason; client `timeoutMs` → {@link TimeoutError}.
-   */
-  async getInferenceByTopicID(
-    topicID: number,
-    signatureFormat?: SignatureFormat | string,
-    opts?: AlloraRequestOptions,
-  ): Promise<AlloraInference> {
-    const ni = await this.fetchNetworkInference(
-      topicID,
-      signatureFormat
-        ? signatureFormatToEvmChainId(signatureFormat)
-        : undefined,
-      true,
-      opts?.signal,
-    );
-    return networkInferenceToLegacy(ni);
+  /** Alias for {@link getAllTopics} (Go: `GetTopics`). */
+  async getTopics(opts?: AlloraRequestOptions): Promise<Topic[]> {
+    return this.getAllTopics(opts);
   }
 
   /**
-   * Fetches the full flat gateway inference payload (staleness, decimals,
-   * provenance, vector signature, …). Structural validation only — does not
-   * require inference values, so stale/empty topics remain readable.
+   * Returns one topic from the catalog and best-effort attaches
+   * `latest_network_inference`. The gateway has no single-topic route yet, so
+   * this scans the catalog list. Missing ids throw {@link TopicNotFoundError}.
+   * Inference failures leave `latest_network_inference` unset.
+   */
+  async getTopic(
+    topicID: number,
+    opts?: AlloraRequestOptions,
+  ): Promise<Topic> {
+    if (!Number.isInteger(topicID) || topicID <= 0) {
+      throw new ConfigError(
+        `topicID must be a positive integer (got ${JSON.stringify(topicID)})`,
+      );
+    }
+    const topics = await this.fetchTopics(opts?.signal);
+    const topic = topics.find((t) => t.id === topicID);
+    if (!topic) {
+      throw new TopicNotFoundError(topicID);
+    }
+    try {
+      topic.latest_network_inference = await this.getNetworkInference(
+        topicID,
+        undefined,
+        opts,
+      );
+    } catch {
+      topic.latest_network_inference = null;
+    }
+    return topic;
+  }
+
+  /**
+   * Fetches the full flat gateway inference payload (`NetworkInference` wire).
+   *
+   * If `signatureFormat` is provided, it is mapped onto the gateway
+   * `evm_chain_id` query. If omitted, no `evm_chain_id` is sent and
+   * `signature` is typically `""`.
    *
    * Rejection contract: caller `opts.signal` cancel → `AbortError` / caller
    * reason; client `timeoutMs` → {@link TimeoutError}.
@@ -164,9 +173,20 @@ export class AlloraAPIClient {
       signatureFormat
         ? signatureFormatToEvmChainId(signatureFormat)
         : undefined,
-      false,
       opts?.signal,
     );
+  }
+
+  /**
+   * @deprecated Use {@link getNetworkInference}. Previously returned the
+   * Upshot nested `AlloraInference` envelope.
+   */
+  async getInferenceByTopicID(
+    topicID: number,
+    signatureFormat?: SignatureFormat | string,
+    opts?: AlloraRequestOptions,
+  ): Promise<NetworkInference> {
+    return this.getNetworkInference(topicID, signatureFormat, opts);
   }
 
   /** Build a gateway URL for an endpoint (kept for back-compat). */
@@ -174,7 +194,7 @@ export class AlloraAPIClient {
     return this.gatewayURL(endpoint);
   }
 
-  private async fetchTopics(signal?: AbortSignal): Promise<AlloraTopic[]> {
+  private async fetchTopics(signal?: AbortSignal): Promise<Topic[]> {
     const path = `${this.network}/topics`;
     const data = await this.gatewayGet<unknown>(path, undefined, signal);
     if (data === null || typeof data !== "object" || Array.isArray(data)) {
@@ -186,13 +206,12 @@ export class AlloraAPIClient {
         "gateway topics response missing topics array",
       );
     }
-    return (topics as GatewayTopicWire[]).map(mapGatewayTopic);
+    return topics.map(assertTopic);
   }
 
   private async fetchNetworkInference(
     topicId: number,
     evmChainId: string | undefined,
-    requireValues: boolean,
     signal?: AbortSignal,
   ): Promise<NetworkInference> {
     if (!Number.isInteger(topicId) || topicId <= 0) {
@@ -203,9 +222,7 @@ export class AlloraAPIClient {
     const path = `${this.network}/inference/${topicId}`;
     const query = evmChainId ? { evm_chain_id: evmChainId } : undefined;
     const data = await this.gatewayGet<unknown>(path, query, signal);
-    return requireValues
-      ? assertNetworkInference(data)
-      : assertNetworkInferenceShape(data);
+    return assertNetworkInferenceShape(data);
   }
 
   private gatewayURL(path: string, query?: Record<string, string>): string {

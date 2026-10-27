@@ -7,29 +7,29 @@ export enum ChainSlug {
 
 /**
  * @deprecated Cosmos chain ids used historically by RPC/worker code — not Forge
- * gateway paths. The gateway client uses `ChainSlug`. Kept for back-compat imports.
+ * gateway paths. The gateway client uses `ChainSlug`.
  */
 export enum ChainID {
   TESTNET = "allora-testnet-1",
   MAINNET = "allora-mainnet-1",
 }
 
-/** @deprecated No longer used by any method; kept for back-compat imports. */
+/** @deprecated No longer used by any method. */
 export enum PriceInferenceToken {
   BTC = "BTC",
   ETH = "ETH",
 }
 
-/** @deprecated No longer used by any method; kept for back-compat imports. */
+/** @deprecated No longer used by any method. */
 export enum PriceInferenceTimeframe {
   FIVE_MIN = "5m",
   EIGHT_HOURS = "8h",
 }
 
 /**
- * Legacy consumer signature format; mapped to `evm_chain_id` query when possible.
+ * Consumer signature format; mapped to `evm_chain_id` query when possible.
  * You may also pass a raw chain id string (e.g. `"3448148188"`) or
- * `"ethereum-<chainId>"` to `getInferenceByTopicID`.
+ * `"ethereum-<chainId>"`.
  */
 export enum SignatureFormat {
   ETHEREUM_SEPOLIA = "ethereum-11155111",
@@ -70,7 +70,114 @@ export interface AlloraRequestOptions {
   signal?: AbortSignal;
 }
 
-/** Locked public topic shape — field names must not change. */
+/** One label entry in a network-inference bundle (gateway wire). */
+export interface LabeledValue {
+  label_name: string;
+  value: string;
+}
+
+/** One worker's labeled values — inferer or forecaster (gateway wire). */
+export interface WorkerInference {
+  worker: string;
+  values: LabeledValue[];
+}
+
+/**
+ * Flat Forge gateway inference payload — public SDK type = wire JSON.
+ * Prefer `network_inference_normalized` for human-readable prices.
+ */
+export interface NetworkInference {
+  network?: string;
+  topic_id: number;
+  combined_value?: LabeledValue[];
+  naive_value?: LabeledValue[];
+  label_names?: string[];
+  nonce?: number;
+  extra_data?: string;
+  timestamp_ms?: number;
+  consensus_time?: string;
+  height_tx?: number;
+  outlier_resistant?: boolean;
+  inference_block_height?: string;
+  inferer_values?: WorkerInference[];
+  forecaster_values?: WorkerInference[];
+  cached_at?: string;
+  next_prediction_expected_at?: string;
+  is_stale?: boolean;
+  seconds_late?: number | null;
+  network_inference?: string;
+  network_inference_normalized?: string;
+  token_decimals?: number;
+  /** Gateway Unix-seconds timestamp. */
+  timestamp?: number;
+  signature?: string;
+  confidence_interval_percentiles?: string[];
+  confidence_interval_percentiles_normalized?: string[];
+  confidence_interval_values?: string[];
+  confidence_interval_values_normalized?: string[];
+  /**
+   * Gateway may return this as a JSON number or string depending on route.
+   */
+  evm_chain_id?: number | string;
+  consumer_address?: string;
+  vector_signature?: string;
+  vector_signature_public?: string;
+  signature_extra_data?: string;
+}
+
+/**
+ * Forge gateway catalog topic — public SDK type = wire JSON.
+ * `latest_network_inference` is SDK-only (attached by {@link AlloraAPIClient.getTopic}).
+ */
+export interface Topic {
+  id: number;
+  creator: string;
+  metadata: string;
+  loss_method: string;
+  epoch_last_ended: number;
+  epoch_length: number;
+  ground_truth_lag: number;
+  worker_submission_window: number;
+  created_at?: string | null;
+  /** Attached by `getTopic` (best-effort); not on the topics list payload. */
+  latest_network_inference?: NetworkInference | null;
+}
+
+/** Gateway topics list envelope. */
+export interface TopicsResponse {
+  network?: string;
+  count?: number;
+  cached_at?: string;
+  topics: Topic[];
+}
+
+/**
+ * @deprecated Upshot nested inference shape. Prefer {@link NetworkInference}.
+ * Kept only for transitional imports — not returned by public methods.
+ */
+export interface AlloraInferenceData {
+  network_inference: string;
+  network_inference_normalized: string;
+  confidence_interval_percentiles: string[];
+  confidence_interval_percentiles_normalized: string[];
+  confidence_interval_values: string[];
+  confidence_interval_values_normalized: string[];
+  topic_id: string;
+  timestamp: number;
+  extra_data: string;
+}
+
+/**
+ * @deprecated Upshot nested inference envelope. Prefer {@link NetworkInference}.
+ */
+export interface AlloraInference {
+  signature: string;
+  inference_data: AlloraInferenceData;
+}
+
+/**
+ * @deprecated Upshot topic shape (`topic_id` / `topic_name`). Prefer {@link Topic}.
+ */
 export interface AlloraTopic {
   topic_id: number;
   topic_name: string;
@@ -87,33 +194,7 @@ export interface AlloraTopic {
   updated_at: string;
 }
 
-/** Locked nested inference payload — field names must not change. */
-export interface AlloraInferenceData {
-  network_inference: string;
-  network_inference_normalized: string;
-  confidence_interval_percentiles: string[];
-  confidence_interval_percentiles_normalized: string[];
-  confidence_interval_values: string[];
-  confidence_interval_values_normalized: string[];
-  topic_id: string;
-  /** Unix seconds (legacy field; derived from gateway `timestamp_ms` or `timestamp`). */
-  timestamp: number;
-  extra_data: string;
-}
-
-/** Locked public inference shape — nested `inference_data` must not change. */
-export interface AlloraInference {
-  signature: string;
-  inference_data: AlloraInferenceData;
-}
-
-/** @deprecated Legacy Upshot envelope — preserved for type references only. */
-export interface TopicsResponse {
-  topics: AlloraTopic[];
-  continuation_token?: string | null;
-}
-
-/** @deprecated Legacy Upshot envelope — preserved for type references only. */
+/** @deprecated Legacy Upshot envelope. */
 export interface AlloraAPIResponse<T> {
   request_id: string;
   status: boolean;

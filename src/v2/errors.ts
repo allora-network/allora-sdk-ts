@@ -40,6 +40,17 @@ export class TimeoutError extends AlloraAPIError {
   }
 }
 
+/** Topic id was not present in the gateway catalog. */
+export class TopicNotFoundError extends AlloraAPIError {
+  readonly topicId: number;
+
+  constructor(topicId: number) {
+    super(`topic not found: ${topicId}`);
+    this.name = "TopicNotFoundError";
+    this.topicId = topicId;
+  }
+}
+
 /** Non-2xx HTTP response from Forge Gateway. */
 export class APIError extends AlloraAPIError {
   readonly statusCode: number;

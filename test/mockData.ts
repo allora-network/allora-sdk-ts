@@ -1,4 +1,4 @@
-import type { AlloraTopic, NetworkInference } from "../src/v2";
+import type { NetworkInference, Topic } from "../src/v2";
 
 export const mockGatewayTopicsResponse = {
   network: "testnet",
@@ -19,21 +19,17 @@ export const mockGatewayTopicsResponse = {
   ],
 };
 
-/** Independent expected topic — do not derive via `mapGatewayTopic`. */
-export const mockTopic: AlloraTopic = {
-  topic_id: 72,
-  topic_name: "BTC 5min",
-  description: null,
+/** Independent expected topic — wire shape. */
+export const mockTopic: Topic = {
+  id: 72,
+  creator: "allo1…",
+  metadata: "BTC 5min",
+  loss_method: "mse",
+  epoch_last_ended: 0,
   epoch_length: 720,
   ground_truth_lag: 1,
-  loss_method: "mse",
   worker_submission_window: 10,
-  worker_count: 0,
-  reputer_count: 0,
-  total_staked_allo: 0,
-  total_emissions_allo: 0,
-  is_active: null,
-  updated_at: "",
+  created_at: "2026-01-01T00:00:00Z",
 };
 
 export const mockNetworkInference: NetworkInference = {
