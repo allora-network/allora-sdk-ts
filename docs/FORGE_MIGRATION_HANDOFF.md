@@ -4,7 +4,7 @@
 Do **not** keep Upshot-era compat field names (`topic_id` / nested-only slim wrappers) as the long-term public contract — enlarge/replace to match Go.
 
 **Canonical response shapes (copy these):**  
-[`allora-sdk-go/docs/FORGE_API_RESPONSE_SHAPES.md`](../../allora-sdk-go/docs/FORGE_API_RESPONSE_SHAPES.md)
+[`FORGE_API_RESPONSE_SHAPES.md`](./FORGE_API_RESPONSE_SHAPES.md) (local copy) · [Go shapes doc](https://github.com/allora-network/allora-sdk-go/blob/main/docs/FORGE_API_RESPONSE_SHAPES.md)
 
 **Reference implementation:** https://github.com/allora-network/allora-sdk-go/pull/29  
 **Linear:** [ENGN-9548](https://linear.app/alloralabs/issue/ENGN-9548)
@@ -51,7 +51,7 @@ Prefer `network_inference_normalized` for prices; never treat raw `network_infer
 |------------|-----------|
 | List topics | `getAllTopics()` → `Topic[]` |
 | One topic | `getTopic(id)` — best-effort attach inference |
-| Inference | `getNetworkInference(id, opts?)` |
+| Inference | `getNetworkInference(id, signatureFormat?, opts?)` |
 | Candles | `getCandles(query)` + async iterator over pages |
 
 ---
