@@ -8,8 +8,8 @@ import {
   MAX_API_RESPONSE_BYTES,
   ResponseTooLargeError,
   SignatureFormat,
+  TimeoutError,
   TopicNotFoundError,
-  networkInferenceToLegacy,
 } from "../src/v2";
 import {
   mockGatewayTopicsResponse,
@@ -298,6 +298,30 @@ describe("AlloraAPIClient Unit Tests", () => {
       expect(topic.latest_network_inference).toBeNull();
     });
 
+    it("rethrows caller abort during inference attach", async () => {
+      const ac = new AbortController();
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockImplementationOnce(() => {
+          ac.abort();
+          return Promise.reject(
+            Object.assign(new Error("aborted"), { name: "AbortError" }),
+          );
+        });
+
+      await expect(client.getTopic(72, { signal: ac.signal })).rejects.toMatchObject({
+        name: "AbortError",
+      });
+    });
+
+    it("rethrows TimeoutError during inference attach", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockRejectedValueOnce(new TimeoutError(1));
+
+      await expect(client.getTopic(72)).rejects.toBeInstanceOf(TimeoutError);
+    });
+
     it("throws TopicNotFoundError for unknown id", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
       await expect(client.getTopic(999)).rejects.toBeInstanceOf(
@@ -394,12 +418,6 @@ describe("AlloraAPIClient Unit Tests", () => {
       );
     });
 
-    it("getInferenceByTopicID aliases getNetworkInference", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
-      const inference = await client.getInferenceByTopicID(72);
-      expect(inference.network_inference_normalized).toBe("0.00006678");
-      expect(inference).not.toHaveProperty("inference_data");
-    });
   });
 
   describe("response size guard", () => {
@@ -434,14 +452,4 @@ describe("AlloraAPIClient Unit Tests", () => {
     });
   });
 
-  describe("deprecated legacy adapter", () => {
-    it("networkInferenceToLegacy still maps to nested shape", () => {
-      const legacy = networkInferenceToLegacy(mockNetworkInference);
-      expect(legacy.signature).toBe("0xabc");
-      expect(legacy.inference_data.network_inference_normalized).toBe(
-        "0.00006678",
-      );
-      expect(legacy.inference_data.timestamp).toBe(1784025644);
-    });
-  });
 });

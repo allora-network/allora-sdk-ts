@@ -7,7 +7,7 @@ import {
   TopicNotFoundError,
 } from "./errors";
 import {
-  assertNetworkInferenceShape,
+  assertNetworkInference,
   assertTopic,
   signatureFormatToEvmChainId,
 } from "./gateway";
@@ -125,17 +125,14 @@ export class AlloraAPIClient {
    * Returns one topic from the catalog and best-effort attaches
    * `latest_network_inference`. The gateway has no single-topic route yet, so
    * this scans the catalog list. Missing ids throw {@link TopicNotFoundError}.
-   * Inference failures leave `latest_network_inference` unset.
+   * Gateway/HTTP/shape failures set `latest_network_inference` to `null`.
+   * Caller cancel and client timeout still reject.
    */
   async getTopic(
     topicID: number,
     opts?: AlloraRequestOptions,
   ): Promise<Topic> {
-    if (!Number.isInteger(topicID) || topicID <= 0) {
-      throw new ConfigError(
-        `topicID must be a positive integer (got ${JSON.stringify(topicID)})`,
-      );
-    }
+    this.requireTopicId(topicID);
     const topics = await this.fetchTopics(opts?.signal);
     const topic = topics.find((t) => t.id === topicID);
     if (!topic) {
@@ -147,7 +144,17 @@ export class AlloraAPIClient {
         undefined,
         opts,
       );
-    } catch {
+    } catch (err) {
+      // Best-effort attach: gateway/HTTP/shape/network failures → null.
+      // Cancel, timeout, and config mistakes must still reject the call.
+      if (
+        opts?.signal?.aborted ||
+        err instanceof TimeoutError ||
+        err instanceof ConfigError ||
+        this.isAbortError(err)
+      ) {
+        throw err;
+      }
       topic.latest_network_inference = null;
     }
     return topic;
@@ -177,21 +184,26 @@ export class AlloraAPIClient {
     );
   }
 
-  /**
-   * @deprecated Use {@link getNetworkInference}. Previously returned the
-   * Upshot nested `AlloraInference` envelope.
-   */
-  async getInferenceByTopicID(
-    topicID: number,
-    signatureFormat?: SignatureFormat | string,
-    opts?: AlloraRequestOptions,
-  ): Promise<NetworkInference> {
-    return this.getNetworkInference(topicID, signatureFormat, opts);
-  }
-
   /** Build a gateway URL for an endpoint (kept for back-compat). */
   getRequestUrl(endpoint: string): string {
     return this.gatewayURL(endpoint);
+  }
+
+  private requireTopicId(topicId: number): void {
+    if (!Number.isInteger(topicId) || topicId <= 0) {
+      throw new ConfigError(
+        `topicID must be a positive integer (got ${JSON.stringify(topicId)})`,
+      );
+    }
+  }
+
+  private isAbortError(err: unknown): boolean {
+    return (
+      !!err &&
+      typeof err === "object" &&
+      "name" in err &&
+      (err as { name?: string }).name === "AbortError"
+    );
   }
 
   private async fetchTopics(signal?: AbortSignal): Promise<Topic[]> {
@@ -214,15 +226,11 @@ export class AlloraAPIClient {
     evmChainId: string | undefined,
     signal?: AbortSignal,
   ): Promise<NetworkInference> {
-    if (!Number.isInteger(topicId) || topicId <= 0) {
-      throw new ConfigError(
-        `topicID must be a positive integer (got ${JSON.stringify(topicId)})`,
-      );
-    }
+    this.requireTopicId(topicId);
     const path = `${this.network}/inference/${topicId}`;
     const query = evmChainId ? { evm_chain_id: evmChainId } : undefined;
     const data = await this.gatewayGet<unknown>(path, query, signal);
-    return assertNetworkInferenceShape(data);
+    return assertNetworkInference(data);
   }
 
   private gatewayURL(path: string, query?: Record<string, string>): string {

@@ -127,19 +127,23 @@ export interface NetworkInference {
 
 /**
  * Forge gateway catalog topic — public SDK type = wire JSON.
+ * Fields beyond `id` are whatever the gateway returned (not invented).
  * `latest_network_inference` is SDK-only (attached by {@link AlloraAPIClient.getTopic}).
  */
 export interface Topic {
   id: number;
-  creator: string;
-  metadata: string;
-  loss_method: string;
-  epoch_last_ended: number;
-  epoch_length: number;
-  ground_truth_lag: number;
-  worker_submission_window: number;
+  creator?: string;
+  metadata?: string;
+  loss_method?: string;
+  epoch_last_ended?: number;
+  epoch_length?: number;
+  ground_truth_lag?: number;
+  worker_submission_window?: number;
   created_at?: string | null;
-  /** Attached by `getTopic` (best-effort); not on the topics list payload. */
+  /**
+   * Attached by `getTopic` (best-effort). Absent on list payloads.
+   * Set to `null` when the inference request fails (non-cancel).
+   */
   latest_network_inference?: NetworkInference | null;
 }
 
@@ -149,57 +153,6 @@ export interface TopicsResponse {
   count?: number;
   cached_at?: string;
   topics: Topic[];
-}
-
-/**
- * @deprecated Upshot nested inference shape. Prefer {@link NetworkInference}.
- * Kept only for transitional imports — not returned by public methods.
- */
-export interface AlloraInferenceData {
-  network_inference: string;
-  network_inference_normalized: string;
-  confidence_interval_percentiles: string[];
-  confidence_interval_percentiles_normalized: string[];
-  confidence_interval_values: string[];
-  confidence_interval_values_normalized: string[];
-  topic_id: string;
-  timestamp: number;
-  extra_data: string;
-}
-
-/**
- * @deprecated Upshot nested inference envelope. Prefer {@link NetworkInference}.
- */
-export interface AlloraInference {
-  signature: string;
-  inference_data: AlloraInferenceData;
-}
-
-/**
- * @deprecated Upshot topic shape (`topic_id` / `topic_name`). Prefer {@link Topic}.
- */
-export interface AlloraTopic {
-  topic_id: number;
-  topic_name: string;
-  description?: string | null;
-  epoch_length: number;
-  ground_truth_lag: number;
-  loss_method: string;
-  worker_submission_window: number;
-  worker_count: number;
-  reputer_count: number;
-  total_staked_allo: number;
-  total_emissions_allo: number;
-  is_active: boolean | null;
-  updated_at: string;
-}
-
-/** @deprecated Legacy Upshot envelope. */
-export interface AlloraAPIResponse<T> {
-  request_id: string;
-  status: boolean;
-  apiResponseMessage?: string;
-  data: T;
 }
 
 export const DefaultAPIBaseURL = "https://api.developer.allora.network";

@@ -16,8 +16,9 @@ npm install @alloralabs/allora-sdk
 
 | Before (Upshot / early Forge port) | After |
 |------------------------------------|--------|
-| Required nested `AlloraInference.inference_data.*` | Flat `NetworkInference` (gateway JSON) |
+| Nested `AlloraInference.inference_data.*` | Flat `NetworkInference` (gateway JSON) |
 | `AlloraTopic.topic_id` / `topic_name` | `Topic.id` / `Topic.metadata` |
+| `getInferenceByTopicID` / legacy mappers | **Removed** — use `getNetworkInference` |
 | Optional embedded `UP-…` key | **Required** `forge_sk_…` |
 | `https://api.upshot.xyz/v2` | `https://api.developer.allora.network` |
 | `getPriceInference` | **Removed** — use `getAllTopics` + `getNetworkInference` |

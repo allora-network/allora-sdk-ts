@@ -21,7 +21,7 @@ Envelope: `{ network, count, cached_at, topics: Topic[] }`
 | `ground_truth_lag` | number |
 | `worker_submission_window` | number |
 | `created_at` | RFC3339 string \| null |
-| `latest_network_inference` | `NetworkInference` (SDK-only; attached by `getTopic`) |
+| `latest_network_inference` | `NetworkInference \| null` (SDK-only; attached by `getTopic`; `null` on inference failure) |
 
 ## Network inference — `GET /{network}/inference/{topic_id}`
 
