@@ -49,8 +49,11 @@ export interface AlloraAPIClientConfig {
    */
   baseAPIUrl?: string;
   /**
-   * Optional request deadline in milliseconds (client-wide policy).
+   * Optional per-HTTP-request deadline in milliseconds.
    * Must be a finite number in `(0, 2^31 - 1]`.
+   * Bounds each underlying `fetch`, not the whole logical client call —
+   * {@link AlloraAPIClient.getTopic} issues two requests and may take up to
+   * ~2× this value.
    */
   timeoutMs?: number;
 }
@@ -126,9 +129,9 @@ export interface NetworkInference {
 }
 
 /**
- * Forge gateway catalog topic — public SDK type = wire JSON.
+ * Pure Forge gateway catalog topic — public SDK type = wire JSON.
  * Fields beyond `id` are whatever the gateway returned (not invented).
- * `latest_network_inference` is SDK-only (attached by {@link AlloraAPIClient.getTopic}).
+ * Does not include SDK-only attachments.
  */
 export interface Topic {
   id: number;
@@ -140,11 +143,18 @@ export interface Topic {
   ground_truth_lag?: number;
   worker_submission_window?: number;
   created_at?: string | null;
+}
+
+/**
+ * Topic plus the SDK-attached latest inference (returned by
+ * {@link AlloraAPIClient.getTopic}).
+ */
+export interface TopicWithInference extends Topic {
   /**
-   * Attached by `getTopic` (best-effort). Absent on list payloads.
-   * Set to `null` when the inference request fails (non-cancel).
+   * Best-effort attach. `null` when the inference HTTP call fails with a
+   * no-data outcome (`APIError` / transport); absent on list payloads.
    */
-  latest_network_inference?: NetworkInference | null;
+  latest_network_inference: NetworkInference | null;
 }
 
 /** Gateway topics list envelope. */

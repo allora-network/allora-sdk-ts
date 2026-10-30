@@ -17,13 +17,18 @@ npm install @alloralabs/allora-sdk
 | Before (Upshot / early Forge port) | After |
 |------------------------------------|--------|
 | Nested `AlloraInference.inference_data.*` | Flat `NetworkInference` (gateway JSON) |
+| `AlloraTopic` / `AlloraInference` / `AlloraInferenceData` types | **Removed** — use `Topic` / `NetworkInference` (wire shapes). `getTopic` returns `TopicWithInference`. |
 | `AlloraTopic.topic_id` / `topic_name` | `Topic.id` / `Topic.metadata` |
-| `getInferenceByTopicID` / legacy mappers | **Removed** — use `getNetworkInference` |
+| `getInferenceByTopicID` (defaulted `signatureFormat` to Sepolia) | **Removed** — use `getNetworkInference` or `getTopic`. No default chain: `evm_chain_id` is sent only when you pass `signatureFormat`; without it `signature` is typically `""` (gateway does not sign). |
+| Legacy mappers (`networkInferenceToLegacy`, `assertNetworkInferenceShape`, `GatewayTopicWire`, …) | **Removed** |
+| Upshot `continuation_token` pagination | Gateway returns the catalog in **one** response; the SDK does not paginate or compare envelope `count` to `topics.length` |
 | Optional embedded `UP-…` key | **Required** `forge_sk_…` |
 | `https://api.upshot.xyz/v2` | `https://api.developer.allora.network` |
 | `getPriceInference` | **Removed** — use `getAllTopics` + `getNetworkInference` |
 
 Prefer `network_inference_normalized` for human-readable prices (raw `network_inference` is base units).
+
+Without `signatureFormat`, on-chain verification will fail if you expect a non-empty `signature` — pass `SignatureFormat` / a chain id when you need a signed payload.
 
 ### Usage
 
@@ -64,20 +69,24 @@ console.log({ signed: signed.signature });
 // const ac = new AbortController();
 // const pending = alloraClient.getAllTopics({ signal: ac.signal });
 // ac.abort();
-// await pending.catch(() => undefined); // AbortError / caller reason
+// await pending.catch((err) => {
+//   // Intentional cancel: err.name === 'AbortError', or your abort(reason)
+// });
 ```
 
 ### Errors and cancellation
+
+Classify intentional cancel with `err.name === "AbortError"` (or your custom `abort(reason)`), not by assuming every failure is an `AlloraAPIError`.
 
 | Failure | Result |
 |---------|--------|
 | Invalid client configuration | Constructor **throws** `ConfigError` (`AlloraAPIError` subclass) |
 | Invalid request argument (e.g. non-positive `topicID`) | Request **rejects** with `ConfigError` (`AlloraAPIError` subclass) |
 | `getTopic` topic missing from catalog | Request **rejects** with `TopicNotFoundError` |
-| HTTP non-2xx / bad payload | Request **rejects** with `AlloraAPIError` subclasses (`APIError`, …) |
-| Response body exceeds 32 MiB | Request **rejects** with `ResponseTooLargeError` (`AlloraAPIError` subclass) |
-| Transport failure (DNS / connection / TLS) | Request **rejects** with the fetch error unchanged (e.g. `TypeError`) — not wrapped |
-| Client `timeoutMs` deadline | Request **rejects** with `TimeoutError` (`AlloraAPIError` subclass) |
+| HTTP non-2xx / bad payload | Request **rejects** with `AlloraAPIError` subclasses (`APIError`, …). **Exception:** on `getTopic`'s inference attach, HTTP `APIError` becomes `latest_network_inference: null` (best-effort) |
+| Response body exceeds 32 MiB | Request **rejects** with `ResponseTooLargeError` (`AlloraAPIError` subclass) — including `getTopic` attach |
+| Transport failure (DNS / connection / TLS) | Request **rejects** with the fetch error unchanged (e.g. `TypeError`) — not wrapped. **Exception:** on `getTopic`'s inference attach, transport failures become `latest_network_inference: null` |
+| Client `timeoutMs` deadline | Request **rejects** with `TimeoutError` (`AlloraAPIError` subclass). `timeoutMs` is **per HTTP request**; `getTopic` may take up to ~2× that wall-clock |
 | Caller cancel via `AbortController.abort()` | Request **rejects** with `AbortError` / `DOMException`, or the reason passed to `abort(reason)` — **not** wrapped as `AlloraAPIError` (fetch-style) |
 
 ### Environment variables

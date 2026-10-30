@@ -21,7 +21,16 @@ Envelope: `{ network, count, cached_at, topics: Topic[] }`
 | `ground_truth_lag` | number |
 | `worker_submission_window` | number |
 | `created_at` | RFC3339 string \| null |
-| `latest_network_inference` | `NetworkInference \| null` (SDK-only; optional, attached by `getTopic`; absent from `getAllTopics`; `null` on inference failure) |
+
+Envelope `count` / `cached_at` are informational; the SDK does not paginate and does not assert `count === topics.length`.
+
+### `TopicWithInference` (SDK-only — return type of `getTopic`)
+
+Wire `Topic` fields plus:
+
+| Field | Type |
+|-------|------|
+| `latest_network_inference` | `NetworkInference \| null` (attached by `getTopic`; absent from `getAllTopics`) |
 
 ## Network inference — `GET /{network}/inference/{topic_id}`
 

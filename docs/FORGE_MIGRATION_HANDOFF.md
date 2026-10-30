@@ -27,7 +27,7 @@ Do **not** keep Upshot-era compat field names (`topic_id` / nested-only slim wra
 | Item | Value |
 |------|--------|
 | Gateway | `https://api.developer.allora.network` |
-| Data | `https://forge-data.allora.run/api` |
+| Data | `https://forge-data.allora.network/api` |
 | Network | `mainnet` (`testnet` \| `mainnet` \| `offchain`) |
 | Key | required; server validates (no client-side `forge_sk_` hard reject required) |
 
@@ -37,7 +37,8 @@ Do **not** keep Upshot-era compat field names (`topic_id` / nested-only slim wra
 
 See the Go shapes doc for full JSON. Summary:
 
-- **`Topic`:** `id`, `creator`, `metadata`, `loss_method`, `epoch_*`, `ground_truth_lag`, `worker_submission_window`, `created_at`; optional SDK-only `latest_network_inference`
+- **`Topic`:** `id`, `creator`, `metadata`, `loss_method`, `epoch_*`, `ground_truth_lag`, `worker_submission_window`, `created_at`
+- **`TopicWithInference`:** `Topic` + required SDK-only `latest_network_inference` (from `getTopic`)
 - **`NetworkInference`:** flat gateway payload (`network_inference_normalized`, labeled `combined_value`, CI arrays, signatures, …)
 - **`Candle`:** float `open`/`high`/`low`/`close`/`volume`, `timestamp`, `dataset_id`
 
@@ -50,7 +51,7 @@ Prefer `network_inference_normalized` for prices; never treat raw `network_infer
 | Capability | Suggested |
 |------------|-----------|
 | List topics | `getAllTopics()` → `Topic[]` |
-| One topic | `getTopic(id)` — best-effort attach inference |
+| One topic | `getTopic(id)` → `TopicWithInference` (best-effort attach) |
 | Inference | `getNetworkInference(id, signatureFormat?, opts?)` |
 | Candles | `getCandles(query)` + async iterator over pages |
 
@@ -67,6 +68,6 @@ Integration: `ALLORA_API_KEY=…` against prod defaults (or stage overrides).
 
 - [ ] Public types match Go JSON tags / shapes doc
 - [ ] Dual base URLs + dual auth
-- [ ] Prod data default `forge-data.allora.run`
+- [ ] Prod data default `forge-data.allora.network`
 - [ ] Pagination host check + cycle/cap for Atlas `next`
 - [ ] Breaking change documented for Upshot field renames

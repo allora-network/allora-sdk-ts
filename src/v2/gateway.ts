@@ -3,8 +3,8 @@ import { NetworkInference, SignatureFormat, Topic } from "./types";
 
 /**
  * Validate a gateway topic catalog entry.
- * Requires a positive integer `id`; other wire fields pass through as returned
- * (no invented defaults).
+ * Requires a JSON number positive integer `id`; other wire fields pass through.
+ * Strips reserved SDK-only `latest_network_inference` if present on the wire.
  */
 export function assertTopic(data: unknown): Topic {
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
@@ -13,13 +13,18 @@ export function assertTopic(data: unknown): Topic {
     );
   }
   const raw = data as Record<string, unknown>;
-  const id = Number(raw.id);
-  if (!Number.isInteger(id) || id <= 0) {
+  if (
+    typeof raw.id !== "number" ||
+    !Number.isInteger(raw.id) ||
+    raw.id <= 0
+  ) {
     throw new AlloraAPIError(
       `gateway topic missing valid id (got ${JSON.stringify(raw.id)})`,
     );
   }
-  return { ...(data as Topic), id };
+  const topic = { ...(data as Topic), id: raw.id };
+  delete (topic as { latest_network_inference?: unknown }).latest_network_inference;
+  return topic;
 }
 
 /** Structural check: object + positive integer topic_id. */

@@ -21,6 +21,7 @@ import {
   NetworkInference,
   SignatureFormat,
   Topic,
+  TopicWithInference,
 } from "./types";
 
 const VALID_NETWORKS = new Set<ChainSlug>([
@@ -120,41 +121,51 @@ export class AlloraAPIClient {
   /**
    * Returns one topic from the catalog and best-effort attaches
    * `latest_network_inference`. The gateway has no single-topic route yet, so
-   * this scans the catalog list. Missing ids throw {@link TopicNotFoundError}.
-   * Gateway/HTTP/shape failures set `latest_network_inference` to `null`.
+   * this scans the catalog list (validating only the matching row).
+   *
+   * NOTE: `timeoutMs` bounds each underlying HTTP request, so this method may
+   * take up to ~2× `timeoutMs` in total (catalog scan, then inference attach).
+   *
+   * Best-effort attach: HTTP `APIError` / raw transport failures set
+   * `latest_network_inference` to `null`. Cancel, timeout, config mistakes,
+   * {@link ResponseTooLargeError}, and shape / topic-id mismatches still reject.
+   *
    * Invalid `topicID` → {@link ConfigError}; missing catalog id →
-   * {@link TopicNotFoundError}; caller cancel / client timeout still reject.
+   * {@link TopicNotFoundError}.
    */
   async getTopic(
     topicID: number,
     opts?: AlloraRequestOptions,
-  ): Promise<Topic> {
+  ): Promise<TopicWithInference> {
     this.requireTopicId(topicID);
-    const topics = await this.fetchTopics(opts?.signal);
-    const topic = topics.find((t) => t.id === topicID);
-    if (!topic) {
-      throw new TopicNotFoundError(topicID);
-    }
+    // Cancellation wins over anything concurrent, at every await boundary.
+    this.throwIfAborted(opts?.signal);
+    const topic = await this.fetchTopicById(topicID, opts?.signal);
+    this.throwIfAborted(opts?.signal);
     try {
-      topic.latest_network_inference = await this.getNetworkInference(
+      const inference = await this.getNetworkInference(
         topicID,
         undefined,
         opts,
       );
+      return { ...topic, latest_network_inference: inference };
     } catch (err) {
-      // Best-effort attach: gateway/HTTP/shape/network failures → null.
-      // Cancel, timeout, and config mistakes must still reject the call.
+      if (opts?.signal?.aborted) {
+        throw opts.signal.reason ?? this.abortError();
+      }
+      // Best-effort: only genuine no-data outcomes resolve to null.
+      // Cancellation, deadlines, configuration, size-cap, and corrupt payloads reject.
       if (
-        opts?.signal?.aborted ||
         err instanceof TimeoutError ||
         err instanceof ConfigError ||
-        this.isAbortError(err)
+        err instanceof ResponseTooLargeError ||
+        this.isAbortError(err) ||
+        (err instanceof AlloraAPIError && !(err instanceof APIError))
       ) {
         throw err;
       }
-      topic.latest_network_inference = null;
+      return { ...topic, latest_network_inference: null };
     }
-    return topic;
   }
 
   /**
@@ -204,9 +215,17 @@ export class AlloraAPIClient {
     );
   }
 
-  private async fetchTopics(signal?: AbortSignal): Promise<Topic[]> {
-    const path = `${this.network}/topics`;
-    const data = await this.gatewayGet<unknown>(path, undefined, signal);
+  private abortError(): DOMException {
+    return new DOMException("Aborted", "AbortError");
+  }
+
+  private throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      throw signal.reason ?? this.abortError();
+    }
+  }
+
+  private parseTopicsEnvelope(data: unknown): unknown[] {
     if (data === null || typeof data !== "object" || Array.isArray(data)) {
       throw new AlloraAPIError("gateway topics response is not an object");
     }
@@ -216,7 +235,37 @@ export class AlloraAPIClient {
         "gateway topics response missing topics array",
       );
     }
-    return topics.map(assertTopic);
+    return topics;
+  }
+
+  private async fetchTopics(signal?: AbortSignal): Promise<Topic[]> {
+    const path = `${this.network}/topics`;
+    const data = await this.gatewayGet<unknown>(path, undefined, signal);
+    return this.parseTopicsEnvelope(data).map(assertTopic);
+  }
+
+  /**
+   * Catalog lookup for one id: skips validation of unrelated rows so a bad
+   * sibling entry cannot fail a valid topic's getTopic.
+   */
+  private async fetchTopicById(
+    topicId: number,
+    signal?: AbortSignal,
+  ): Promise<Topic> {
+    const path = `${this.network}/topics`;
+    const data = await this.gatewayGet<unknown>(path, undefined, signal);
+    const rows = this.parseTopicsEnvelope(data);
+    const row = rows.find(
+      (r) =>
+        typeof r === "object" &&
+        r !== null &&
+        !Array.isArray(r) &&
+        (r as { id?: unknown }).id === topicId,
+    );
+    if (!row) {
+      throw new TopicNotFoundError(topicId);
+    }
+    return assertTopic(row);
   }
 
   private async fetchNetworkInference(
@@ -228,7 +277,13 @@ export class AlloraAPIClient {
     const path = `${this.network}/inference/${topicId}`;
     const query = evmChainId ? { evm_chain_id: evmChainId } : undefined;
     const data = await this.gatewayGet<unknown>(path, query, signal);
-    return assertNetworkInference(data);
+    const ni = assertNetworkInference(data);
+    if (ni.topic_id !== topicId) {
+      throw new AlloraAPIError(
+        `gateway inference topic_id ${ni.topic_id} does not match requested ${topicId}`,
+      );
+    }
+    return ni;
   }
 
   private gatewayURL(path: string, query?: Record<string, string>): string {

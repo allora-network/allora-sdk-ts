@@ -289,13 +289,68 @@ describe("AlloraAPIClient Unit Tests", () => {
       );
     });
 
-    it("leaves latest_network_inference null when inference fails", async () => {
+    it("leaves latest_network_inference null when inference HTTP fails", async () => {
       mockFetch
         .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
         .mockResolvedValueOnce(jsonResponse({ error: "billing" }, 402));
 
       const topic = await client.getTopic(72);
       expect(topic.latest_network_inference).toBeNull();
+    });
+
+    it("ignores malformed sibling catalog rows", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({
+            topics: [
+              mockGatewayTopicsResponse.topics[0],
+              { id: 0 },
+              { id: "abc" },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      const topic = await client.getTopic(72);
+      expect(topic.id).toBe(72);
+      expect(topic.latest_network_inference?.topic_id).toBe(72);
+    });
+
+    it("rejects when attached inference topic_id mismatches", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            ...mockNetworkInference,
+            topic_id: 999,
+          }),
+        );
+
+      await expect(client.getTopic(72)).rejects.toBeInstanceOf(AlloraAPIError);
+    });
+
+    it("rethrows ResponseTooLargeError during inference attach", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockRejectedValueOnce(new ResponseTooLargeError(MAX_API_RESPONSE_BYTES));
+
+      await expect(client.getTopic(72)).rejects.toBeInstanceOf(
+        ResponseTooLargeError,
+      );
+    });
+
+    it("prefers abort reason over concurrent inference APIError", async () => {
+      const ac = new AbortController();
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockImplementationOnce(async () => {
+          ac.abort();
+          return jsonResponse({ error: "boom" }, 500);
+        });
+
+      await expect(client.getTopic(72, { signal: ac.signal })).rejects.toMatchObject({
+        name: "AbortError",
+      });
     });
 
     it("rethrows caller abort during inference attach", async () => {
@@ -367,6 +422,15 @@ describe("AlloraAPIClient Unit Tests", () => {
       );
     });
 
+    it("rejects when response topic_id does not match the request", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ ...mockNetworkInference, topic_id: 999 }),
+      );
+      await expect(client.getNetworkInference(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
+      );
+    });
+
     it("allows stale payloads without inference values", async () => {
       mockFetch.mockResolvedValueOnce(
         jsonResponse({
@@ -397,12 +461,12 @@ describe("AlloraAPIClient Unit Tests", () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
 
       await client.getNetworkInference(
-        1,
+        72,
         SignatureFormat.ETHEREUM_ALLORA_TESTNET,
       );
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://gateway.test/testnet/inference/1?evm_chain_id=3448148188",
+        "https://gateway.test/testnet/inference/72?evm_chain_id=3448148188",
         expect.any(Object),
       );
     });
@@ -410,10 +474,10 @@ describe("AlloraAPIClient Unit Tests", () => {
     it("accepts a raw chain id string", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
 
-      await client.getNetworkInference(1, "3448148188");
+      await client.getNetworkInference(72, "3448148188");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://gateway.test/testnet/inference/1?evm_chain_id=3448148188",
+        "https://gateway.test/testnet/inference/72?evm_chain_id=3448148188",
         expect.any(Object),
       );
     });
