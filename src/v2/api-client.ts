@@ -140,7 +140,15 @@ export class AlloraAPIClient {
     this.requireTopicId(topicID);
     // Cancellation wins over anything concurrent, at every await boundary.
     this.throwIfAborted(opts?.signal);
-    const topic = await this.fetchTopicById(topicID, opts?.signal);
+    let topic: Topic;
+    try {
+      topic = await this.fetchTopicById(topicID, opts?.signal);
+    } catch (err) {
+      if (opts?.signal?.aborted) {
+        throw opts.signal.reason ?? this.abortError();
+      }
+      throw err;
+    }
     this.throwIfAborted(opts?.signal);
     try {
       const inference = await this.getNetworkInference(

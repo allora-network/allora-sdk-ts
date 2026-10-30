@@ -27,7 +27,7 @@ Do **not** keep Upshot-era compat field names (`topic_id` / nested-only slim wra
 | Item | Value |
 |------|--------|
 | Gateway | `https://api.developer.allora.network` |
-| Data | `https://forge-data.allora.network/api` |
+| Data | `https://forge-data.allora.run/api` |
 | Network | `mainnet` (`testnet` \| `mainnet` \| `offchain`) |
 | Key | required; server validates (no client-side `forge_sk_` hard reject required) |
 
