@@ -268,8 +268,14 @@ export class AlloraAPIClient {
     const row = rows.find((r) => isObjectRow(r) && r.id === topicId);
     if (!row) {
       // A present-but-malformed id is a wire fault, not absence.
+      // Only compare string ids — String(object) can throw on hostile toString.
       if (
-        rows.some((r) => isObjectRow(r) && String(r.id) === String(topicId))
+        rows.some(
+          (r) =>
+            isObjectRow(r) &&
+            typeof r.id === "string" &&
+            r.id === String(topicId),
+        )
       ) {
         throw new AlloraAPIError(
           `gateway topic ${topicId} is present but its id is not a JSON number`,
