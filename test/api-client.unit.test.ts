@@ -316,6 +316,21 @@ describe("AlloraAPIClient Unit Tests", () => {
       expect(topic.latest_network_inference?.topic_id).toBe(72);
     });
 
+    it("rejects a present string-id row as wire fault, not TopicNotFoundError", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topics: [{ ...mockGatewayTopicsResponse.topics[0], id: "72" }],
+        }),
+      );
+
+      await expect(client.getTopic(72)).rejects.toEqual(
+        expect.objectContaining({
+          name: "AlloraAPIError",
+          message: expect.stringContaining("not a JSON number"),
+        }),
+      );
+    });
+
     it("rejects when attached inference topic_id mismatches", async () => {
       mockFetch
         .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))

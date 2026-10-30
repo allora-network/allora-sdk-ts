@@ -263,14 +263,18 @@ export class AlloraAPIClient {
     const path = `${this.network}/topics`;
     const data = await this.gatewayGet<unknown>(path, undefined, signal);
     const rows = this.parseTopicsEnvelope(data);
-    const row = rows.find(
-      (r) =>
-        typeof r === "object" &&
-        r !== null &&
-        !Array.isArray(r) &&
-        (r as { id?: unknown }).id === topicId,
-    );
+    const isObjectRow = (r: unknown): r is Record<string, unknown> =>
+      typeof r === "object" && r !== null && !Array.isArray(r);
+    const row = rows.find((r) => isObjectRow(r) && r.id === topicId);
     if (!row) {
+      // A present-but-malformed id is a wire fault, not absence.
+      if (
+        rows.some((r) => isObjectRow(r) && String(r.id) === String(topicId))
+      ) {
+        throw new AlloraAPIError(
+          `gateway topic ${topicId} is present but its id is not a JSON number`,
+        );
+      }
       throw new TopicNotFoundError(topicId);
     }
     return assertTopic(row);
