@@ -21,12 +21,14 @@ jobs:
           node-version: '18.x'
 
       # ESLint and Prettier must be in `package.json`
-      # --frozen-lockfile ensures lockfile will not be updated
       - name: Install yarn via corepack
         run: corepack enable && corepack prepare yarn@1.22.22 --activate
 
       - name: Install dependencies with yarn
-        run: yarn install
+        # Security: --frozen-lockfile prevents transitive-dep drift in CI;
+        # --ignore-scripts blocks postinstall execution (Shai-Hulud
+        # supply-chain worm mitigation). See DEVOP-555.
+        run: yarn install --frozen-lockfile --ignore-scripts
 
       - name: Run ESLint
         run: yarn lint
