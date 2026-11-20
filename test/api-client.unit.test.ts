@@ -1,12 +1,39 @@
 import {
   AlloraAPIClient,
+  AlloraAPIError,
+  APIError,
   ChainSlug,
-  PriceInferenceToken,
-  PriceInferenceTimeframe,
-  ChainID,
+  ConfigError,
+  DefaultAPIBaseURL,
+  MAX_API_RESPONSE_BYTES,
+  ResponseTooLargeError,
   SignatureFormat,
+  TimeoutError,
+  TopicNotFoundError,
 } from "../src/v2";
-import { mockTopic, mockInference, mockAPIResponse } from "./mockData";
+import {
+  mockGatewayTopicsResponse,
+  mockNetworkInference,
+  mockTopic,
+} from "./mockData";
+
+const TEST_KEY = "forge_sk_test_key_123";
+
+function withTrailingSlash(url: string): string {
+  return url.replace(/\/?$/, "/");
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  const text = JSON.stringify(body);
+  const bytes = new TextEncoder().encode(text);
+  return new Response(text, {
+    status,
+    headers: {
+      "content-type": "application/json",
+      "content-length": String(bytes.byteLength),
+    },
+  });
+}
 
 describe("AlloraAPIClient Unit Tests", () => {
   let client: AlloraAPIClient;
@@ -18,8 +45,8 @@ describe("AlloraAPIClient Unit Tests", () => {
 
     client = new AlloraAPIClient({
       chainSlug: ChainSlug.TESTNET,
-      apiKey: "test-api-key",
-      baseAPIUrl: "https://test-api.com",
+      apiKey: TEST_KEY,
+      baseAPIUrl: "https://gateway.test",
     });
   });
 
@@ -28,181 +55,480 @@ describe("AlloraAPIClient Unit Tests", () => {
   });
 
   describe("constructor", () => {
-    it("should initialize with correct default values", () => {
-      const testClient = new AlloraAPIClient({
-        chainSlug: ChainSlug.TESTNET,
-        apiKey: "test-api-key",
-      });
-      expect(testClient["baseAPIUrl"]).toBe("https://api.upshot.xyz/v2");
-      expect(testClient["chainID"]).toBe(ChainID.TESTNET);
-      expect(testClient["apiKey"]).toBe("test-api-key");
+    it("rejects empty key", () => {
+      expect(() => new AlloraAPIClient({ apiKey: "" })).toThrow(ConfigError);
     });
 
-    it("should use mainnet chain ID when chainSlug is MAINNET", () => {
-      const mainnetClient = new AlloraAPIClient({
-        chainSlug: ChainSlug.MAINNET,
-        apiKey: "test-api-key",
-      });
-      expect(mainnetClient["chainID"]).toBe(ChainID.MAINNET);
+    it("rejects undefined key at runtime", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: undefined as unknown as string,
+          }),
+      ).toThrow(ConfigError);
     });
 
-    it("should use custom baseAPIUrl when provided", () => {
-      const customBaseAPIUrl = "https://custom-api.com";
-      const customClient = new AlloraAPIClient({
-        chainSlug: ChainSlug.TESTNET,
-        apiKey: "test-api-key",
-        baseAPIUrl: customBaseAPIUrl,
+    it("rejects legacy UP- keys", () => {
+      expect(
+        () => new AlloraAPIClient({ apiKey: "UP-8cbc632a67a84ac1b4078661" }),
+      ).toThrow(/forge_sk_/);
+    });
+
+    it("rejects empty baseAPIUrl", () => {
+      expect(
+        () => new AlloraAPIClient({ apiKey: TEST_KEY, baseAPIUrl: "   " }),
+      ).toThrow(/baseAPIUrl is empty/);
+    });
+
+    it("rejects non-https remote baseAPIUrl", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            baseAPIUrl: "http://evil.example",
+          }),
+      ).toThrow(/must use https/);
+    });
+
+    it("allows http://localhost", () => {
+      const c = new AlloraAPIClient({
+        apiKey: TEST_KEY,
+        baseAPIUrl: "http://localhost:8082",
       });
-      expect(customClient["baseAPIUrl"]).toBe(customBaseAPIUrl);
+      expect(c["baseAPIUrl"]).toBe("http://localhost:8082/");
+    });
+
+    it("defaults to gateway + mainnet", () => {
+      const prev = process.env.ALLORA_API_BASE_URL;
+      delete process.env.ALLORA_API_BASE_URL;
+      try {
+        const c = new AlloraAPIClient({ apiKey: TEST_KEY });
+        expect(c["baseAPIUrl"]).toBe(withTrailingSlash(DefaultAPIBaseURL));
+        expect(c["network"]).toBe(ChainSlug.MAINNET);
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ALLORA_API_BASE_URL;
+        } else {
+          process.env.ALLORA_API_BASE_URL = prev;
+        }
+      }
+    });
+
+    it("reads ALLORA_API_BASE_URL when baseAPIUrl omitted", () => {
+      const prev = process.env.ALLORA_API_BASE_URL;
+      process.env.ALLORA_API_BASE_URL = "https://env-gateway.example/";
+      try {
+        const c = new AlloraAPIClient({ apiKey: TEST_KEY });
+        expect(c["baseAPIUrl"]).toBe("https://env-gateway.example/");
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ALLORA_API_BASE_URL;
+        } else {
+          process.env.ALLORA_API_BASE_URL = prev;
+        }
+      }
+    });
+
+    it("falls back when baseAPIUrl is empty string", () => {
+      const prev = process.env.ALLORA_API_BASE_URL;
+      delete process.env.ALLORA_API_BASE_URL;
+      try {
+        const c = new AlloraAPIClient({
+          apiKey: TEST_KEY,
+          baseAPIUrl: "",
+        });
+        expect(c["baseAPIUrl"]).toBe(withTrailingSlash(DefaultAPIBaseURL));
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ALLORA_API_BASE_URL;
+        } else {
+          process.env.ALLORA_API_BASE_URL = prev;
+        }
+      }
+    });
+
+    it("accepts overrides and testnet", () => {
+      const c = new AlloraAPIClient({
+        apiKey: TEST_KEY,
+        chainSlug: ChainSlug.TESTNET,
+        baseAPIUrl: "https://custom-gateway",
+      });
+      expect(c["baseAPIUrl"]).toBe("https://custom-gateway/");
+      expect(c["network"]).toBe(ChainSlug.TESTNET);
+    });
+
+    it("rejects invalid chainSlug", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            chainSlug: "bogus" as ChainSlug,
+          }),
+      ).toThrow(ConfigError);
+    });
+
+    it("rejects non-finite timeoutMs", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            timeoutMs: Infinity,
+          }),
+      ).toThrow(ConfigError);
+    });
+
+    it("rejects timeoutMs above setTimeout ceiling", () => {
+      expect(
+        () =>
+          new AlloraAPIClient({
+            apiKey: TEST_KEY,
+            timeoutMs: 3_000_000_000,
+          }),
+      ).toThrow(ConfigError);
+    });
+  });
+
+  describe("request cancellation", () => {
+    it("aborts only the call that received the signal", async () => {
+      const ac = new AbortController();
+      mockFetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) {
+            reject(new Error("expected signal"));
+            return;
+          }
+          if (signal.aborted) {
+            reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+            return;
+          }
+          signal.addEventListener(
+            "abort",
+            () => {
+              reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+      });
+
+      const pending = client.getAllTopics({ signal: ac.signal });
+      ac.abort();
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+
+      mockFetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
+        expect(init?.signal?.aborted).not.toBe(true);
+        return Promise.resolve(jsonResponse(mockGatewayTopicsResponse));
+      });
+      const topics = await client.getAllTopics();
+      expect(topics).toHaveLength(1);
     });
   });
 
   describe("getAllTopics", () => {
-    it("should fetch all topics with pagination", async () => {
-      const expectedTopics = [mockTopic, { ...mockTopic, topic_id: 2 }];
-      const firstResponse = {
-        status: true,
-        request_id: "test",
-        data: {
-          topics: [expectedTopics[0]],
-          continuation_token: "next-page",
-        },
-      };
-
-      const secondResponse = {
-        status: true,
-        request_id: "test",
-        data: {
-          topics: [expectedTopics[1]],
-          continuation_token: null,
-        },
-      };
-
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(firstResponse),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(secondResponse),
-        });
+    it("hits gateway path with Bearer auth and returns wire Topic", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
 
       const topics = await client.getAllTopics();
 
-      expect(topics).toHaveLength(2);
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-
-      for (let i = 0; i < topics.length; i++) {
-        expect(topics[i].topic_id).toBe(expectedTopics[i].topic_id);
-        expect(topics[i].topic_name).toBe(expectedTopics[i].topic_name);
-      }
-    });
-
-    it("should throw an error if the API request fails", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: () => Promise.resolve({}),
-      });
-      await expect(client.getAllTopics()).rejects.toThrow();
-    });
-  });
-
-  describe("getInferenceByTopicID", () => {
-    it("should fetch inference data correctly", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockAPIResponse),
-      });
-
-      const topicID = 1;
-      const inference = await client.getInferenceByTopicID(
-        topicID,
-        SignatureFormat.ETHEREUM_SEPOLIA,
-      );
-
-      expect(inference.inference_data.network_inference).toEqual(
-        mockInference.inference_data.network_inference,
-      );
-      expect(inference.inference_data.network_inference_normalized).toEqual(
-        mockInference.inference_data.network_inference_normalized,
-      );
+      expect(topics).toHaveLength(1);
+      expect(topics[0].id).toBe(mockTopic.id);
+      expect(topics[0].metadata).toBe("BTC 5min");
+      expect(topics[0].epoch_length).toBe(720);
+      expect(topics[0].creator).toBe("allo1…");
+      expect(topics[0]).not.toHaveProperty("topic_id");
+      expect(topics[0]).not.toHaveProperty("topic_name");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `/allora/consumer/${SignatureFormat.ETHEREUM_SEPOLIA}?allora_topic_id=${topicID}&inference_value_type=uint256`,
-        ),
-        expect.any(Object),
-      );
-    });
-
-    it("should throw an error if the API request fails", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: () => Promise.resolve({}),
-      });
-      await expect(client.getInferenceByTopicID(1)).rejects.toThrow();
-    });
-  });
-
-  describe("getPriceInference", () => {
-    it("should fetch price inference data correctly", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockAPIResponse),
-      });
-
-      const inference = await client.getPriceInference(
-        PriceInferenceToken.BTC,
-        PriceInferenceTimeframe.FIVE_MIN,
-      );
-
-      expect(inference.inference_data.network_inference).toEqual(
-        mockInference.inference_data.network_inference,
-      );
-      expect(inference.inference_data.network_inference_normalized).toEqual(
-        mockInference.inference_data.network_inference_normalized,
-      );
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `/allora/consumer/price/${SignatureFormat.ETHEREUM_SEPOLIA}/${PriceInferenceToken.BTC}/${PriceInferenceTimeframe.FIVE_MIN}`,
-        ),
-        expect.any(Object),
-      );
-    });
-
-    it("should throw error when inference data is missing", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            ...mockAPIResponse,
-            data: { signature: "0x1234" },
+        "https://gateway.test/testnet/topics",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${TEST_KEY}`,
           }),
-      });
-
-      await expect(
-        client.getPriceInference(
-          PriceInferenceToken.BTC,
-          PriceInferenceTimeframe.FIVE_MIN,
-        ),
-      ).rejects.toThrow("Failed to fetch price inference");
+        }),
+      );
     });
 
-    it("should throw an error if the API request fails", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: () => Promise.resolve({}),
+    it("throws when topics array is missing", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ network: "testnet" }));
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(AlloraAPIError);
+    });
+
+    it("throws AlloraAPIError for null topic entries", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ topics: [null, mockGatewayTopicsResponse.topics[0]] }),
+      );
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(AlloraAPIError);
+    });
+
+    it("throws APIError on non-200", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ error: "forbidden" }, 403));
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(APIError);
+    });
+
+    it("parses error message from body", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ error: "nope" }, 402));
+      await expect(client.getAllTopics()).rejects.toMatchObject({
+        statusCode: 402,
+        apiMessage: "nope",
       });
-      await expect(
-        client.getPriceInference(
-          PriceInferenceToken.BTC,
-          PriceInferenceTimeframe.FIVE_MIN,
-        ),
-      ).rejects.toThrow();
     });
   });
+
+  describe("getTopic", () => {
+    it("returns catalog topic and attaches latest inference", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      const topic = await client.getTopic(72);
+      expect(topic.id).toBe(72);
+      expect(topic.metadata).toBe("BTC 5min");
+      expect(topic.latest_network_inference?.network_inference_normalized).toBe(
+        "0.00006678",
+      );
+    });
+
+    it("leaves latest_network_inference null when inference HTTP fails", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockResolvedValueOnce(jsonResponse({ error: "billing" }, 402));
+
+      const topic = await client.getTopic(72);
+      expect(topic.latest_network_inference).toBeNull();
+    });
+
+    it("ignores malformed sibling catalog rows", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({
+            topics: [
+              mockGatewayTopicsResponse.topics[0],
+              { id: 0 },
+              { id: "abc" },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      const topic = await client.getTopic(72);
+      expect(topic.id).toBe(72);
+      expect(topic.latest_network_inference?.topic_id).toBe(72);
+    });
+
+    it("rejects a present string-id row as wire fault, not TopicNotFoundError", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topics: [{ ...mockGatewayTopicsResponse.topics[0], id: "72" }],
+        }),
+      );
+
+      await expect(client.getTopic(72)).rejects.toEqual(
+        expect.objectContaining({
+          name: "AlloraAPIError",
+          message: expect.stringContaining("not a JSON number"),
+        }),
+      );
+    });
+
+    it("rejects when attached inference topic_id mismatches", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            ...mockNetworkInference,
+            topic_id: 999,
+          }),
+        );
+
+      await expect(client.getTopic(72)).rejects.toBeInstanceOf(AlloraAPIError);
+    });
+
+    it("rethrows ResponseTooLargeError during inference attach", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockRejectedValueOnce(new ResponseTooLargeError(MAX_API_RESPONSE_BYTES));
+
+      await expect(client.getTopic(72)).rejects.toBeInstanceOf(
+        ResponseTooLargeError,
+      );
+    });
+
+    it("prefers abort reason over concurrent inference APIError", async () => {
+      const ac = new AbortController();
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockImplementationOnce(async () => {
+          ac.abort();
+          return jsonResponse({ error: "boom" }, 500);
+        });
+
+      await expect(client.getTopic(72, { signal: ac.signal })).rejects.toMatchObject({
+        name: "AbortError",
+      });
+    });
+
+    it("rethrows caller abort during inference attach", async () => {
+      const ac = new AbortController();
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockImplementationOnce(() => {
+          ac.abort();
+          return Promise.reject(
+            Object.assign(new Error("aborted"), { name: "AbortError" }),
+          );
+        });
+
+      await expect(client.getTopic(72, { signal: ac.signal })).rejects.toMatchObject({
+        name: "AbortError",
+      });
+    });
+
+    it("rethrows TimeoutError during inference attach", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse))
+        .mockRejectedValueOnce(new TimeoutError(1));
+
+      await expect(client.getTopic(72)).rejects.toBeInstanceOf(TimeoutError);
+    });
+
+    it("throws TopicNotFoundError for unknown id", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockGatewayTopicsResponse));
+      await expect(client.getTopic(999)).rejects.toBeInstanceOf(
+        TopicNotFoundError,
+      );
+    });
+  });
+
+  describe("getNetworkInference", () => {
+    it("returns the flat gateway payload without nested wrapping", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      const inference = await client.getNetworkInference(72);
+
+      expect(inference.signature).toBe("0xabc");
+      expect(inference.network_inference_normalized).toBe("0.00006678");
+      expect(inference.network_inference).toBe("66781380725120668592");
+      expect(inference.topic_id).toBe(72);
+      expect(inference.timestamp_ms).toBe(1784025644244);
+      expect(inference).not.toHaveProperty("inference_data");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/72",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${TEST_KEY}`,
+          }),
+        }),
+      );
+    });
+
+    it("rejects non-positive topicID", async () => {
+      await expect(client.getNetworkInference(0)).rejects.toBeInstanceOf(
+        ConfigError,
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects unexpected 200 shapes", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ count: 1 }));
+      await expect(client.getNetworkInference(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
+      );
+    });
+
+    it("rejects when response topic_id does not match the request", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ ...mockNetworkInference, topic_id: 999 }),
+      );
+      await expect(client.getNetworkInference(72)).rejects.toBeInstanceOf(
+        AlloraAPIError,
+      );
+    });
+
+    it("allows stale payloads without inference values", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          topic_id: 42,
+          is_stale: true,
+          seconds_late: 900,
+          token_decimals: 9,
+          cached_at: "2026-01-01T00:00:00Z",
+        }),
+      );
+      const ni = await client.getNetworkInference(42);
+      expect(ni.is_stale).toBe(true);
+      expect(ni.seconds_late).toBe(900);
+    });
+
+    it("sends evm_chain_id when signatureFormat is provided", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      await client.getNetworkInference(72, SignatureFormat.ETHEREUM_SEPOLIA);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/72?evm_chain_id=11155111",
+        expect.any(Object),
+      );
+    });
+
+    it("maps ETHEREUM_ALLORA_TESTNET to evm_chain_id=3448148188", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      await client.getNetworkInference(
+        72,
+        SignatureFormat.ETHEREUM_ALLORA_TESTNET,
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/72?evm_chain_id=3448148188",
+        expect.any(Object),
+      );
+    });
+
+    it("accepts a raw chain id string", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(mockNetworkInference));
+
+      await client.getNetworkInference(72, "3448148188");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://gateway.test/testnet/inference/72?evm_chain_id=3448148188",
+        expect.any(Object),
+      );
+    });
+
+  });
+
+  describe("response size guard", () => {
+    it("rejects when streamed (decompressed) bytes exceed the limit", async () => {
+      const chunk = new Uint8Array(1024);
+      let remaining = MAX_API_RESPONSE_BYTES + chunk.byteLength;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (remaining <= 0) {
+            controller.close();
+            return;
+          }
+          const size = Math.min(chunk.byteLength, remaining);
+          remaining -= size;
+          controller.enqueue(chunk.subarray(0, size));
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce(
+        new Response(body, {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "content-length": "5129",
+          },
+        }),
+      );
+
+      await expect(client.getAllTopics()).rejects.toBeInstanceOf(
+        ResponseTooLargeError,
+      );
+    });
+  });
+
 });
